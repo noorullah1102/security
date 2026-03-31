@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source venv/bin/activate)",
+      "Bash(python -c \"from src.analyzer.models import URLFeatures; print\\(''Import successful''\\)\")",
+      "Bash(python -m pytest tests/analyzer/test_basic.py -v --tb=short 2)",
+      "Bash(1 passed:*)",
+      "Bash(python -m pytest tests/analyzer/test_basic.py -v)",
+      "Bash(python -c \"from src.analyzer.models import URLFeatures, print\\(''Import successful''\\)\")",
+      "Bash(python -m pytest tests/analyzer/test_basic.py -v --tb=short)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(pytest tests/ -v --cov=src)",
+      "Bash(grep -rdef \"def \" tests/feeds/ -n --include=src.feeds)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/analyze -H \"X-API-Key: dev-api-key\" -H \"Content-Type: application/json\" -d '{\"\"\"\"url\"\"\"\": \"\"\"\"https://paypa1-secure.com/verify\"\"\"\"}')",
+      "Bash(ls -la *.db data/*.db)",
+      "Bash(sqlite3:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}
