@@ -69,15 +69,15 @@ async def get_recent_scans(
     return ScanListResponse(
         scans=[
             ScanResponse(
-                id=scan.id,
-                url=scan.url,
-                verdict=scan.verdict,
-                confidence=scan.confidence,
-                severity=scan.severity,
-                features=scan.features or {},
-                ai_explanation=scan.ai_explanation,
-                target_brand=scan.target_brand,
-                created_at=scan.created_at,
+                id=scan["id"],
+                url=scan["url"],
+                verdict=scan["verdict"],
+                confidence=scan["confidence"],
+                severity=scan.get("severity"),
+                features=scan.get("features") or {},
+                ai_explanation=scan.get("ai_explanation"),
+                target_brand=scan.get("target_brand"),
+                created_at=scan["created_at"],
             )
             for scan in scans
         ],
@@ -104,15 +104,15 @@ async def get_scan_by_id(
         raise HTTPException(status_code=404, detail="Scan not found")
 
     return ScanResponse(
-        id=scan.id,
-        url=scan.url,
-        verdict=scan.verdict,
-        confidence=scan.confidence,
-        severity=scan.severity,
-        features=scan.features or {},
-        ai_explanation=scan.ai_explanation,
-        target_brand=scan.target_brand,
-        created_at=scan.created_at,
+        id=scan["id"],
+        url=scan["url"],
+        verdict=scan["verdict"],
+        confidence=scan["confidence"],
+        severity=scan.get("severity"),
+        features=scan.get("features") or {},
+        ai_explanation=scan.get("ai_explanation"),
+        target_brand=scan.get("target_brand"),
+        created_at=scan["created_at"],
     )
 
 
@@ -133,15 +133,15 @@ async def search_scans(
     return ScanListResponse(
         scans=[
             ScanResponse(
-                id=scan.id,
-                url=scan.url,
-                verdict=scan.verdict,
-                confidence=scan.confidence,
-                severity=scan.severity,
-                features=scan.features or {},
-                ai_explanation=scan.ai_explanation,
-                target_brand=scan.target_brand,
-                created_at=scan.created_at,
+                id=scan["id"],
+                url=scan["url"],
+                verdict=scan["verdict"],
+                confidence=scan["confidence"],
+                severity=scan.get("severity"),
+                features=scan.get("features") or {},
+                ai_explanation=scan.get("ai_explanation"),
+                target_brand=scan.get("target_brand"),
+                created_at=scan["created_at"],
             )
             for scan in scans
         ],

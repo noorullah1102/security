@@ -32,12 +32,27 @@ def build_threat_analysis_prompt(result: AnalysisResult) -> str:
     """
     features = result.features
 
+    # Build threat feed section if available
+    feed_section = ""
+    if result.threat_feed_result and result.threat_feed_result.is_known_threat:
+        sources = result.threat_feed_result.sources
+        feed_details = []
+        for source in sources:
+            detail = result.threat_feed_result.details.get(source, {})
+            feed_details.append(f"  - {source}: {detail}")
+        feed_section = f"""
+THREAT FEED MATCHES (high confidence — URL found in threat intelligence databases):
+Sources: {', '.join(sources)}
+Details:
+{chr(10).join(str(d) for d in feed_details)}
+"""
+
     return f"""Analyze this URL scan result and provide a security assessment.
 
 URL: {result.url}
 Verdict: {result.verdict}
 Confidence: {result.confidence:.2%}
-
+{feed_section}
 FEATURES:
 - Domain Age: {features.domain_age_days} days
 - SSL Valid: {features.ssl_valid}

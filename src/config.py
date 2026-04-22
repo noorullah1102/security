@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     environment: Literal["development", "staging", "production"] = "development"
 
+    # Threat Feed APIs
+    urlhaus_auth_key: str | None = None
+    virustotal_api_key: str | None = None
+    google_safebrowsing_api_key: str | None = None
+    urlscan_api_key: str | None = None
+
     # Feed Settings
     feed_update_interval: int = 3600  # seconds
 

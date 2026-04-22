@@ -3,192 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhishRadar Dashboard</title>
-
-    <!-- Tailwind CSS -->
+    <title>Dashboard — PhishRadar</title>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
-        .stat-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        }
-        .loading {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .verdict-badge {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-        }
-        .verdict-safe { background-color: #10B981; color: white; }
-        .verdict-phishing { background-color: #EF4444; color: white; }
-        .verdict-suspicious { background-color: #F59E0B; color: white; }
+        * { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+        .font-mono, .url-text { font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace; }
+        body { background: #F7F7F5; color: #1a1a1a; }
+        .card { background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 10px; }
+        .nav-link { padding: 6px 14px; border-radius: 6px; font-size: 14px; color: #555; }
+        .nav-link:hover { background: #f0f0f0; }
+        .nav-link.active { background: #f0f0f0; color: #1a1a1a; font-weight: 500; }
+        .pill { font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 500; }
+        .pill-red { background: #FCEBEB; color: #A32D2D; }
+        .pill-amber { background: #FAEEDA; color: #854F0B; }
+        .pill-green { background: #EAF3DE; color: #3B6D11; }
+        .pill-blue { background: #E6F1FB; color: #185FA5; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .dot-blue { background: #185FA5; }
+        .dot-red { background: #A32D2D; }
+        .dot-green { background: #3B6D11; }
+        .dot-amber { background: #854F0B; }
+        .bar-h { height: 24px; border-radius: 4px; transition: width 0.5s ease; }
+        .bar-v-wrap { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+        .bar-v { width: 28px; border-radius: 4px 4px 0 0; background: #E6F1FB; transition: height 0.5s ease; }
+        .bar-v.today { background: #185FA5; }
+        .scan-row { cursor: pointer; transition: background 0.15s; }
+        .scan-row:hover { background: #f9f9f9; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin 0.8s linear infinite; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body>
     <!-- Navigation -->
-    <nav class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-2.332 9-7.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                    </svg>
-                    <h1 class="text-2xl font-bold">PhishRadar</h1>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm opacity-75">AI-Powered Threat Monitor</span>
-                    <button id="refresh-btn" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
-                        <span id="refresh-text">Refresh</span>
-                        <span id="refresh-loading" class="hidden loading">Refreshing...</span>
-                    </button>
-                </div>
+    <nav style="background:#fff; border-bottom: 0.5px solid rgba(0,0,0,0.1);">
+        <div style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <!-- Shield logo -->
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <rect width="28" height="28" rx="6" fill="#E24B4A"/>
+                    <path d="M14 6 L14 6 L8 9.5V15.5C8 19.5 14 23 14 23C14 23 20 19.5 20 15.5V9.5L14 6Z" stroke="white" stroke-width="1.5" fill="none"/>
+                    <path d="M11.5 14L13 15.5L17 11.5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span style="font-weight:500; font-size:16px;">PhishRadar</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px;">
+                <a href="/" class="nav-link active">Dashboard</a>
+                <a href="/analyze" class="nav-link">URL Checker</a>
+                <a href="/threat-feed" class="nav-link" style="display:flex;align-items:center;gap:6px;">
+                    Threat Feed
+                    <span class="pill pill-red" style="font-size:10px;">LIVE</span>
+                </a>
+                <a href="/bulk-scan" class="nav-link">Bulk Scan</a>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 py-8">
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <main style="max-width:1120px; margin:0 auto; padding:24px 20px;">
+
+        <!-- Top Row: 4 Stat Cards -->
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px;">
             <!-- Total Scans -->
-            <div class="stat-card bg-white rounded-xl shadow-md p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm font-medium">Total Scans</p>
-                        <p id="stat-total" class="text-3xl font-bold text-gray-800">-</p>
-                    </div>
-                    <div class="bg-blue-100 p-3 rounded-full">
-                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                        </svg>
-                    </div>
+            <div class="card" style="padding:20px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span class="dot dot-blue"></span>
+                    <span style="font-size:12px;color:#888;">Total Scans</span>
                 </div>
-                <p class="text-xs text-gray-400 mt-2">Last 7 days</p>
+                <div id="stat-total" style="font-size:24px;font-weight:500;">0</div>
+                <div style="font-size:12px;color:#888;margin-top:4px;">Last 7 days</div>
             </div>
-
             <!-- Phishing Detected -->
-            <div class="stat-card bg-white rounded-xl shadow-md p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm font-medium">Phishing Detected</p>
-                        <p id="stat-phishing" class="text-3xl font-bold text-red-600">-</p>
-                    </div>
-                    <div class="bg-red-100 p-3 rounded-full">
-                        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                        </svg>
-                    </div>
+            <div class="card" style="padding:20px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span class="dot dot-red"></span>
+                    <span style="font-size:12px;color:#888;">Phishing Detected</span>
                 </div>
-                <p id="stat-phishing-pct" class="text-xs text-gray-400 mt-2">0% of total</p>
+                <div style="display:flex;align-items:baseline;gap:8px;">
+                    <span id="stat-phishing" style="font-size:24px;font-weight:500;color:#A32D2D;">0</span>
+                    <span id="stat-phishing-pct" style="font-size:12px;color:#888;"></span>
+                </div>
+                <div style="font-size:12px;color:#888;margin-top:2px;">detection rate</div>
             </div>
-
             <!-- Safe URLs -->
-            <div class="stat-card bg-white rounded-xl shadow-md p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm font-medium">Safe URLs</p>
-                        <p id="stat-safe" class="text-3xl font-bold text-green-600">-</p>
-                    </div>
-                    <div class="bg-green-100 p-3 rounded-full">
-                        <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
+            <div class="card" style="padding:20px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span class="dot dot-green"></span>
+                    <span style="font-size:12px;color:#888;">Safe URLs</span>
                 </div>
-                <p id="stat-safe-pct" class="text-xs text-gray-400 mt-2">0% of total</p>
+                <div style="display:flex;align-items:baseline;gap:8px;">
+                    <span id="stat-safe" style="font-size:24px;font-weight:500;color:#3B6D11;">0</span>
+                    <span id="stat-safe-pct" style="font-size:12px;color:#888;"></span>
+                </div>
+                <div style="font-size:12px;color:#888;margin-top:2px;">of total</div>
             </div>
-
             <!-- Suspicious -->
-            <div class="stat-card bg-white rounded-xl shadow-md p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm font-medium">Suspicious</p>
-                        <p id="stat-suspicious" class="text-3xl font-bold text-yellow-600">-</p>
-                    </div>
-                    <div class="bg-yellow-100 p-3 rounded-full">
-                        <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
+            <div class="card" style="padding:20px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span class="dot dot-amber"></span>
+                    <span style="font-size:12px;color:#888;">Suspicious</span>
                 </div>
-                <p id="stat-suspicious-pct" class="text-xs text-gray-400 mt-2">0% of total</p>
+                <div style="display:flex;align-items:baseline;gap:8px;">
+                    <span id="stat-suspicious" style="font-size:24px;font-weight:500;color:#854F0B;">0</span>
+                    <span id="stat-suspicious-pct" style="font-size:12px;color:#888;"></span>
+                </div>
+                <div style="font-size:12px;color:#888;margin-top:2px;">needs review</div>
             </div>
         </div>
 
-        <!-- Charts Row -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <!-- Verdict Distribution Chart -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4">Verdict Distribution</h2>
-                <div class="relative h-64">
-                    <canvas id="verdict-chart"></canvas>
+        <!-- Middle Row: 3 columns -->
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:20px;">
+
+            <!-- Verdict Distribution -->
+            <div class="card" style="padding:20px;">
+                <div style="font-size:14px;font-weight:500;margin-bottom:16px;">Verdict Distribution</div>
+                <div id="verdict-bars" style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:12px;width:70px;color:#888;">Safe</span>
+                        <div style="flex:1;background:#f0f0f0;border-radius:4px;height:24px;overflow:hidden;">
+                            <div id="bar-safe" class="bar-h" style="background:#A8D48C;width:0%;"></div>
+                        </div>
+                        <span id="count-safe" style="font-size:12px;width:30px;text-align:right;">0</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:12px;width:70px;color:#888;">Phishing</span>
+                        <div style="flex:1;background:#f0f0f0;border-radius:4px;height:24px;overflow:hidden;">
+                            <div id="bar-phishing" class="bar-h" style="background:#E8A0A0;width:0%;"></div>
+                        </div>
+                        <span id="count-phishing" style="font-size:12px;width:30px;text-align:right;">0</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:12px;width:70px;color:#888;">Suspicious</span>
+                        <div style="flex:1;background:#f0f0f0;border-radius:4px;height:24px;overflow:hidden;">
+                            <div id="bar-suspicious" class="bar-h" style="background:#E8C880;width:0%;"></div>
+                        </div>
+                        <span id="count-suspicious" style="font-size:12px;width:30px;text-align:right;">0</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Scan Trends Chart -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4">Scan Trends (7 Days)</h2>
-                <div class="relative h-64">
-                    <canvas id="trends-chart"></canvas>
+            <!-- Scan Trend -->
+            <div class="card" style="padding:20px;">
+                <div style="font-size:14px;font-weight:500;margin-bottom:16px;">Scan Trend</div>
+                <div id="trend-bars" style="display:flex;align-items:flex-end;justify-content:space-between;height:120px;gap:8px;">
+                    <!-- Filled by JS -->
                 </div>
             </div>
-        </div>
 
-        <!-- Bottom Row -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Feed Status -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4">Feed Status</h2>
-                <div id="feed-status" class="space-y-3">
-                    <div class="text-gray-400 text-sm">Loading...</div>
+            <div class="card" style="padding:20px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <div style="font-size:14px;font-weight:500;">Feed Status</div>
+                    <button id="refresh-btn" onclick="fetchDashboardData()" style="font-size:12px;color:#888;background:none;border:none;cursor:pointer;">Refresh</button>
+                </div>
+                <div id="feed-status" style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="font-size:13px;color:#888;">Loading...</div>
                 </div>
             </div>
+        </div>
 
-            <!-- Recent Scans -->
-            <div class="bg-white rounded-xl shadow-md p-6 lg:col-span-2">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold text-gray-800">Recent Scans</h2>
-                    <a href="/api/v1/scans/recent" class="text-indigo-600 hover:text-indigo-800 text-sm">View All</a>
+        <!-- Bottom: Recent Scans -->
+        <div class="card" style="padding:20px;">
+            <div style="font-size:14px;font-weight:500;margin-bottom:16px;">Recent Scans</div>
+            <div style="display:flex;flex-direction:column;">
+                <!-- Header -->
+                <div style="display:grid; grid-template-columns:1fr 100px 80px; padding:8px 12px; border-bottom:0.5px solid rgba(0,0,0,0.1); font-size:12px; color:#888;">
+                    <span>URL</span>
+                    <span>Verdict</span>
+                    <span style="text-align:right;">Time</span>
                 </div>
-                <div id="recent-scans" class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead class="text-left text-gray-500 text-sm">
-                            <tr>
-                                <th class="pb-3 font-medium">URL</th>
-                                <th class="pb-3 font-medium">Verdict</th>
-                                <th class="pb-3 font-medium">Confidence</th>
-                                <th class="pb-3 font-medium">Time</th>
-                            </tr>
-                        </thead>
-                        <tbody id="scans-table" class="text-sm">
-                            <tr><td colspan="4" class="text-gray-400 py-4">Loading...</td></tr>
-                        </tbody>
-                    </table>
+                <div id="scans-table">
+                    <div style="padding:20px;text-align:center;color:#888;font-size:13px;">Loading...</div>
                 </div>
             </div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="empty-state" style="display:none;text-align:center;padding:60px 20px;">
+            <div style="font-size:14px;color:#888;margin-bottom:8px;">No scans yet</div>
+            <a href="/analyze" style="font-size:13px;color:#E24B4A;">Try the URL Checker</a>
         </div>
     </main>
 
     <!-- Footer -->
-    <footer class="bg-white border-t mt-8 py-4">
-        <div class="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
-            PhishRadar v1.0.0 | AI-Powered Phishing Detection
-        </div>
+    <footer style="border-top:0.5px solid rgba(0,0,0,0.1);padding:16px 20px;text-align:center;font-size:12px;color:#888;margin-top:32px;background:#fff;">
+        PhishRadar v1.0 — AI-Powered Phishing Detection
     </footer>
 
-    <!-- Dashboard JS -->
     <script src="/static/js/dashboard.js"></script>
 </body>
 </html>

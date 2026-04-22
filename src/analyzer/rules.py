@@ -80,6 +80,36 @@ HIGH_RISK_PATTERNS = [
 class RuleEngine:
     """Rule-based phishing detection engine."""
 
+    # Domains that are trusted and should not trigger low-severity rules
+    TRUSTED_DOMAINS = {
+        "google.com", "www.google.com", "gmail.com", "googleapis.com",
+        "microsoft.com", "live.com", "outlook.com", "office.com", "office365.com",
+        "apple.com", "icloud.com",
+        "amazon.com", "aws.amazon.com",
+        "facebook.com", "fb.com", "meta.com",
+        "paypal.com",
+        "netflix.com",
+        "twitter.com", "x.com",
+        "instagram.com",
+        "linkedin.com",
+        "bankofamerica.com", "bofa.com",
+        "chase.com", "jpmorgan.com",
+        "wellsfargo.com",
+        "citibank.com", "citi.com",
+        "yahoo.com", "yahoomail.com",
+        "dropbox.com",
+        "adobe.com",
+        "steampowered.com",
+        "github.com", "www.github.com",
+        "stackoverflow.com",
+        "wikipedia.org", "www.wikipedia.org",
+        "youtube.com", "www.youtube.com",
+        "reddit.com", "www.reddit.com",
+        "cloudflare.com",
+        "openai.com",
+        "anthropic.com",
+    }
+
     def __init__(
         self,
         typosquat_threshold: int = 2,
@@ -107,20 +137,26 @@ class RuleEngine:
         Returns:
             RulesVerdict with aggregated result
         """
+        # Check if this is a trusted domain — skip low-severity rules
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        is_trusted = domain in self.TRUSTED_DOMAINS
+
         rule_results: list[RuleResult] = []
 
-        # Run all rule checks
+        # Run all rule checks (pass is_trusted so individual rules can skip)
         rule_results.append(self._check_typosquatting(features))
-        rule_results.append(self._check_domain_age(features))
-        rule_results.append(self._check_ssl(features))
+        rule_results.append(self._check_domain_age(features, is_trusted))
+        rule_results.append(self._check_ssl(features, is_trusted))
         rule_results.append(self._check_redirects(features))
         rule_results.append(self._check_ip_address(features))
         rule_results.append(self._check_url_length(features))
-        rule_results.append(self._check_suspicious_keywords(features))
-        rule_results.append(self._check_subdomains(features))
+        rule_results.append(self._check_suspicious_keywords(features, is_trusted))
+        rule_results.append(self._check_subdomains(features, is_trusted))
         rule_results.append(self._check_suspicious_tld(features))
         rule_results.append(self._check_suspicious_patterns(url))
-        rule_results.append(self._check_protocol(features))
+        rule_results.append(self._check_protocol(features, is_trusted))
 
         # Aggregate results
         triggered_rules = [r.rule_name for r in rule_results if r.triggered]
@@ -158,16 +194,15 @@ class RuleEngine:
             description="No typosquatting detected",
         )
 
-    def _check_domain_age(self, features: URLFeatures) -> RuleResult:
+    def _check_domain_age(self, features: URLFeatures, is_trusted: bool = False) -> RuleResult:
         """Check domain registration age."""
         if features.domain_age_days == 0:
-            # Unknown age - slight concern
+            # Unknown age - skip for trusted domains
             return RuleResult(
                 rule_name="domain_age",
                 triggered=False,
                 severity="low",
                 description="Domain age unknown",
-                score=0.5,
             )
         if features.domain_age_days < self.domain_age_suspicious_days:
             return RuleResult(
@@ -184,8 +219,15 @@ class RuleEngine:
             description=f"Domain age: {features.domain_age_days} days",
         )
 
-    def _check_ssl(self, features: URLFeatures) -> RuleResult:
+    def _check_ssl(self, features: URLFeatures, is_trusted: bool = False) -> RuleResult:
         """Check SSL certificate validity."""
+        if is_trusted:
+            return RuleResult(
+                rule_name="ssl_certificate",
+                triggered=False,
+                severity="low",
+                description="Trusted domain, SSL check skipped",
+            )
         if not features.has_https:
             return RuleResult(
                 rule_name="ssl_certificate",
@@ -210,28 +252,32 @@ class RuleEngine:
         )
 
     def _check_redirects(self, features: URLFeatures) -> RuleResult:
-        """Check redirect chain."""
-        if features.redirect_count >= 3:
+        """Check redirect chain.
+
+        Note: 1-2 redirects are normal for legitimate sites (e.g., http->https).
+        Only flag 3+ redirects as suspicious.
+        """
+        if features.redirect_count >= 5:
             return RuleResult(
                 rule_name="redirects",
                 triggered=True,
                 severity="high",
-                description=f"Multiple redirects ({features.redirect_count})",
+                description=f"Excessive redirects ({features.redirect_count})",
                 score=2.0,
             )
-        if features.redirect_count >= 1:
+        if features.redirect_count >= 3:
             return RuleResult(
                 rule_name="redirects",
                 triggered=True,
                 severity="medium",
-                description=f"URL redirects ({features.redirect_count} times)",
+                description=f"Multiple redirects ({features.redirect_count})",
                 score=1.0,
             )
         return RuleResult(
             rule_name="redirects",
             triggered=False,
             severity="low",
-            description="No redirects",
+            description=f"Redirect count: {features.redirect_count}",
         )
 
     def _check_ip_address(self, features: URLFeatures) -> RuleResult:
@@ -268,8 +314,15 @@ class RuleEngine:
             description=f"URL length: {features.url_length}",
         )
 
-    def _check_suspicious_keywords(self, features: URLFeatures) -> RuleResult:
+    def _check_suspicious_keywords(self, features: URLFeatures, is_trusted: bool = False) -> RuleResult:
         """Check for suspicious keywords."""
+        if is_trusted:
+            return RuleResult(
+                rule_name="suspicious_keywords",
+                triggered=False,
+                severity="low",
+                description="Trusted domain, keyword check skipped",
+            )
         if features.has_suspicious_keywords:
             return RuleResult(
                 rule_name="suspicious_keywords",
@@ -285,8 +338,15 @@ class RuleEngine:
             description="No suspicious keywords",
         )
 
-    def _check_subdomains(self, features: URLFeatures) -> RuleResult:
+    def _check_subdomains(self, features: URLFeatures, is_trusted: bool = False) -> RuleResult:
         """Check subdomain count."""
+        if is_trusted:
+            return RuleResult(
+                rule_name="subdomains",
+                triggered=False,
+                severity="low",
+                description="Trusted domain, subdomain check skipped",
+            )
         if features.subdomain_count >= 4:
             return RuleResult(
                 rule_name="subdomains",
@@ -358,8 +418,15 @@ class RuleEngine:
             description="No suspicious patterns",
         )
 
-    def _check_protocol(self, features: URLFeatures) -> RuleResult:
+    def _check_protocol(self, features: URLFeatures, is_trusted: bool = False) -> RuleResult:
         """Check URL protocol."""
+        if is_trusted:
+            return RuleResult(
+                rule_name="protocol",
+                triggered=False,
+                severity="low",
+                description="Trusted domain, protocol check skipped",
+            )
         if not features.has_https:
             return RuleResult(
                 rule_name="protocol",

@@ -27,9 +27,16 @@ SUSPICIOUS_KEYWORDS = {
     "login", "signin", "sign-in", "log-in", "verify", "verification",
     "secure", "security", "account", "update", "confirm", "confirmation",
     "password", "passwd", "pwd", "credential", "auth", "authenticate",
-    "banking", "bank", "paypal", "amazon", "apple", "microsoft", "google",
-    "facebook", "alert", "warning", "suspended", "locked", "unlock",
+    "banking", "alert", "warning", "suspended", "locked", "unlock",
     "verify-account", "secure-login", "account-update", "action-required",
+    "webscr", "cmd", "dispatch", "session", "token", "access",
+}
+
+# Brand names often impersonated (used for smarter detection)
+BRAND_NAMES = {
+    "paypal", "amazon", "apple", "microsoft", "google", "facebook",
+    "netflix", "instagram", "twitter", "linkedin", "chase", "bankofamerica",
+    "wellsfargo", "citi", "ebay", "walmart", "target",
 }
 
 
@@ -66,22 +73,34 @@ class FeatureExtractor:
 
         # Parse URL
         parsed = urlparse(url)
+
+        # Detect IP address early — determines how we process the URL
+        netloc = parsed.netloc
+        # Strip brackets from IPv6 and port
+        host = netloc.split(":")[0]
+        if host.startswith("[") and host.endswith("]"):
+            host = host[1:-1]
+        has_ip_address = self._has_ip_address(netloc)
+
+        if has_ip_address:
+            return self._extract_ip_url(url, parsed, host)
+
+        # Normal domain-based URL
         extracted = tldextract.extract(url)
+
+        # Extract domain info (needed for smart keyword detection)
+        domain = extracted.registered_domain or parsed.netloc
 
         # Extract lexical features
         url_length = len(url)
         path_depth = self._get_path_depth(parsed.path)
         has_https = parsed.scheme == "https"
         subdomain_count = self._count_subdomains(extracted.subdomain)
-        has_ip_address = self._has_ip_address(parsed.netloc)
         suspicious_tld = self._is_suspicious_tld(extracted.suffix)
-        has_suspicious_keywords = self._has_suspicious_keywords(url.lower())
-
-        # Extract domain info
-        domain = extracted.registered_domain or parsed.netloc
+        has_suspicious_keywords = self._has_suspicious_keywords(url.lower(), domain)
 
         # Check SSL certificate
-        ssl_valid, ssl_issuer = self._check_ssl(parsed.netloc, has_https)
+        ssl_valid, ssl_issuer = self._check_ssl(netloc, has_https)
 
         # Get domain age (with caching)
         domain_age_days = self._get_domain_age(domain)
@@ -100,13 +119,47 @@ class FeatureExtractor:
             redirect_chain=redirect_chain,
             typosquat_target=typosquat_target,
             typosquat_distance=typosquat_distance,
-            has_ip_address=has_ip_address,
+            has_ip_address=False,
             url_length=url_length,
             path_depth=path_depth,
             has_suspicious_keywords=has_suspicious_keywords,
             subdomain_count=subdomain_count,
             has_https=has_https,
             suspicious_tld=suspicious_tld,
+        )
+
+    def _extract_ip_url(self, url: str, parsed, host: str) -> URLFeatures:
+        """Extract features for IP-address-based URLs.
+
+        IP URLs skip WHOIS, typosquatting, and subdomain analysis
+        (these don't apply to raw IPs).
+        """
+        url_length = len(url)
+        path_depth = self._get_path_depth(parsed.path)
+        has_https = parsed.scheme == "https"
+        has_suspicious_keywords = self._has_suspicious_keywords(url.lower(), host)
+
+        # SSL check on IP
+        ssl_valid, ssl_issuer = self._check_ssl(parsed.netloc, has_https)
+
+        # Follow redirects
+        redirect_count, redirect_chain = self._follow_redirects(url)
+
+        return URLFeatures(
+            domain_age_days=0,
+            ssl_valid=ssl_valid,
+            ssl_issuer=ssl_issuer,
+            redirect_count=redirect_count,
+            redirect_chain=redirect_chain,
+            typosquat_target=None,
+            typosquat_distance=0,
+            has_ip_address=True,
+            url_length=url_length,
+            path_depth=path_depth,
+            has_suspicious_keywords=has_suspicious_keywords,
+            subdomain_count=0,
+            has_https=has_https,
+            suspicious_tld=False,
         )
 
     def _get_path_depth(self, path: str) -> int:
@@ -149,10 +202,63 @@ class FeatureExtractor:
             return False
         return f".{tld.lower()}" in SUSPICIOUS_TLDS
 
-    def _has_suspicious_keywords(self, url: str) -> bool:
-        """Check if URL contains suspicious keywords."""
+    # Well-known legitimate domains — skip keyword checks
+    TRUSTED_DOMAINS = {
+        "google.com", "www.google.com", "gmail.com",
+        "microsoft.com", "live.com", "outlook.com", "office.com",
+        "apple.com", "icloud.com",
+        "amazon.com", "aws.amazon.com",
+        "facebook.com", "fb.com", "meta.com",
+        "paypal.com",
+        "netflix.com",
+        "twitter.com", "x.com",
+        "instagram.com",
+        "linkedin.com",
+        "github.com", "www.github.com",
+        "youtube.com", "www.youtube.com",
+        "reddit.com", "www.reddit.com",
+        "wikipedia.org", "www.wikipedia.org",
+        "stackoverflow.com",
+        "yahoo.com",
+        "dropbox.com",
+        "adobe.com",
+        "steampowered.com",
+        "cloudflare.com",
+        "openai.com",
+        "anthropic.com",
+        "chase.com",
+        "bankofamerica.com",
+        "wellsfargo.com",
+        "citibank.com", "citi.com",
+    }
+
+    def _has_suspicious_keywords(self, url: str, domain: str = "") -> bool:
+        """Check if URL contains suspicious keywords.
+
+        Smart detection: Brand names are only suspicious if the domain
+        isn't the official brand domain. Trusted domains skip keyword checks.
+        """
         url_lower = url.lower()
-        return any(keyword in url_lower for keyword in SUSPICIOUS_KEYWORDS)
+        domain_lower = (domain or "").lower()
+
+        # Skip keyword checks for trusted domains
+        if domain_lower in self.TRUSTED_DOMAINS:
+            return False
+
+        # Check for action-based suspicious keywords
+        if any(keyword in url_lower for keyword in SUSPICIOUS_KEYWORDS):
+            return True
+
+        # Check for brand impersonation
+        for brand in BRAND_NAMES:
+            if brand in url_lower:
+                # If domain is exactly the brand domain, it's legitimate
+                if domain_lower == f"{brand}.com" or domain_lower == brand:
+                    continue
+                # If brand appears in path or subdomain of non-brand domain, suspicious
+                return True
+
+        return False
 
     def _check_ssl(self, netloc: str, is_https: bool) -> tuple[bool, str | None]:
         """Check SSL certificate validity."""

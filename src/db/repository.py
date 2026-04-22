@@ -58,52 +58,105 @@ class ScanRepository:
             db: Database instance
         """
         self.db = db
-    def save(self, scan: ScanRecord) -> str:
+    def save(
+        self,
+        url: str,
+        verdict: str,
+        confidence: float,
+        features: dict,
+        severity: str | None = None,
+        ai_explanation: dict | None = None,
+        target_brand: str | None = None,
+    ) -> str:
         """Save a scan record.
 
         Args:
-            scan: ScanRecord to save
+            url: Scanned URL
+            verdict: Scan verdict (safe/phishing/suspicious)
+            confidence: Confidence score
+            features: Extracted features dict
+            severity: Severity level (optional)
+            ai_explanation: AI explanation dict (optional)
+            target_brand: Target brand for phishing (optional)
 
         Returns:
             The scan ID
         """
+        scan_id = str(uuid4())
         with self.db.get_session() as session:
+            scan = ScanRecord(
+                id=scan_id,
+                url=url,
+                verdict=verdict,
+                confidence=confidence,
+                severity=severity,
+                features=features,
+                ai_explanation=ai_explanation,
+                target_brand=target_brand,
+                created_at=datetime.utcnow(),
+            )
             session.add(scan)
-            session.flush()  # Flush to get the ID
-            scan_id = scan.id
             session.commit()
-            logger.debug("Scan saved", scan_id=scan_id, url=scan.url)
+            logger.debug("Scan saved", scan_id=scan_id, url=url)
             return scan_id
-    def get_by_id(self, scan_id: str) -> ScanRecord | None:
+
+    def get_by_id(self, scan_id: str) -> dict | None:
         """Get scan by ID.
         Args:
             scan_id: Scan identifier
         Returns:
-            ScanRecord or None
+            Scan dict or None
         """
         with self.db.get_session() as session:
-            return session.query(ScanRecord).filter(ScanRecord.id == scan_id).first()
-    def get_by_url(self, url: str) -> ScanRecord | None:
+            record = session.query(ScanRecord).filter(ScanRecord.id == scan_id).first()
+            if record:
+                return {
+                    "id": record.id,
+                    "url": record.url,
+                    "verdict": record.verdict,
+                    "confidence": record.confidence,
+                    "severity": record.severity,
+                    "features": record.features,
+                    "ai_explanation": record.ai_explanation,
+                    "target_brand": record.target_brand,
+                    "created_at": record.created_at.isoformat() if record.created_at else None,
+                }
+            return None
+
+    def get_by_url(self, url: str) -> dict | None:
         """Get most recent scan by URL.
         Args:
             url: URL to search for
- Returns:
-            ScanRecord or None
+        Returns:
+            Scan dict or None
         """
         with self.db.get_session() as session:
-            return (
+            record = (
                 session.query(ScanRecord)
                 .filter(ScanRecord.url == url)
                 .order_by(ScanRecord.created_at.desc())
                 .first()
             )
+            if record:
+                return {
+                    "id": record.id,
+                    "url": record.url,
+                    "verdict": record.verdict,
+                    "confidence": record.confidence,
+                    "severity": record.severity,
+                    "features": record.features,
+                    "ai_explanation": record.ai_explanation,
+                    "target_brand": record.target_brand,
+                    "created_at": record.created_at.isoformat() if record.created_at else None,
+                }
+            return None
     def get_recent(
         self,
         limit: int = 20,
         offset: int = 0,
         verdict: str | None = None,
         severity: str | None = None,
-    ) -> list[ScanRecord]:
+    ) -> list[dict]:
         """Get recent scans with optional filters.
         Args:
             limit: Maximum number of results
@@ -111,7 +164,7 @@ class ScanRepository:
             verdict: Filter by verdict (optional)
             severity: Filter by severity (optional)
         Returns:
-            List of ScanRecord objects
+            List of scan dictionaries
         """
         with self.db.get_session() as session:
             query = session.query(ScanRecord)
@@ -119,28 +172,57 @@ class ScanRepository:
                 query = query.filter(ScanRecord.verdict == verdict)
             if severity:
                 query = query.filter(ScanRecord.severity == severity)
-            return (
+            records = (
                 query.order_by(ScanRecord.created_at.desc())
                 .offset(offset)
                 .limit(limit)
                 .all()
             )
-    def search(self, query: str, limit: int = 20) -> list[ScanRecord]:
+            # Convert to dicts within session to avoid detachment issues
+            return [
+                {
+                    "id": r.id,
+                    "url": r.url,
+                    "verdict": r.verdict,
+                    "confidence": r.confidence,
+                    "severity": r.severity,
+                    "features": r.features,
+                    "ai_explanation": r.ai_explanation,
+                    "target_brand": r.target_brand,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in records
+            ]
+    def search(self, query: str, limit: int = 20) -> list[dict]:
         """Search scans by URL substring.
         Args:
             query: Search query string
             limit: Maximum number of results
         Returns:
-            List of ScanRecord objects
+            List of scan dictionaries
         """
         with self.db.get_session() as session:
-            return (
+            records = (
                 session.query(ScanRecord)
                 .filter(ScanRecord.url.contains(query))
                 .order_by(ScanRecord.created_at.desc())
                 .limit(limit)
                 .all()
             )
+            return [
+                {
+                    "id": r.id,
+                    "url": r.url,
+                    "verdict": r.verdict,
+                    "confidence": r.confidence,
+                    "severity": r.severity,
+                    "features": r.features,
+                    "ai_explanation": r.ai_explanation,
+                    "target_brand": r.target_brand,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in records
+            ]
     def get_stats(self, days: int = 7) -> dict[str, Any]:
         """Get scan statistics for the past N days.
         Args:
@@ -330,13 +412,25 @@ class FeedStatusRepository:
         """
         with self.db.get_session() as session:
             return session.query(FeedStatus).filter(FeedStatus.source == source).first()
-    def get_all_status(self) -> list[FeedStatus]:
+    def get_all_status(self) -> list[dict]:
         """Get status for all feed sources.
         Returns:
-            List of FeedStatus objects
+            List of feed status dictionaries
         """
         with self.db.get_session() as session:
-            return session.query(FeedStatus).all()
+            records = session.query(FeedStatus).all()
+            return [
+                {
+                    "source": r.source,
+                    "status": r.status,
+                    "last_update": r.last_update,
+                    "last_attempt": r.last_attempt,
+                    "indicator_count": r.indicator_count,
+                    "error_count": r.error_count,
+                    "last_error": r.last_error,
+                }
+                for r in records
+            ]
     def update_status(
         self,
         source: str,

@@ -1,19 +1,13 @@
 /**
- * PhishRadar Dashboard JavaScript
- * Handles API calls, Chart.js integration, and real-time updates
+ * PhishRadar Dashboard — CSS-only charts, no Chart.js
  */
 
-// Configuration
 const API_BASE = '/api/v1';
 const API_KEY = localStorage.getItem('api_key') || 'dev-api-key';
-const REFRESH_INTERVAL = 30000; // 30 seconds
+const REFRESH_INTERVAL = 30000;
 
-// Chart instances
-let verdictChart = null;
-let trendsChart = null;
 let refreshTimer = null;
 
-// API Helper
 async function apiFetch(endpoint, options = {}) {
     const response = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
@@ -23,269 +17,185 @@ async function apiFetch(endpoint, options = {}) {
             ...options.headers,
         },
     });
-
-    if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
     return response.json();
 }
 
-// Update Stats Cards
-function updateStats(summary) {
-    document.getElementById('stat-total').textContent = summary.total_scans || 0;
-    document.getElementById('stat-phishing').textContent = summary.phishing_detected || 0;
-    document.getElementById('stat-safe').textContent = summary.safe_urls || 0;
-    document.getElementById('stat-suspicious').textContent = summary.suspicious_urls || 0;
-
-    const total = summary.total_scans || 1;
-    document.getElementById('stat-phishing-pct').textContent =
-        `${Math.round((summary.phishing_detected || 0) / total * 100)}% of total`;
-    document.getElementById('stat-safe-pct').textContent =
-        `${Math.round((summary.safe_urls || 0) / total * 100)}% of total`;
-    document.getElementById('stat-suspicious-pct').textContent =
-        `${Math.round((summary.suspicious_urls || 0) / total * 100)}% of total`;
-}
-
-// Update Verdict Chart
-function updateVerdictChart(distribution) {
-    const ctx = document.getElementById('verdict-chart').getContext('2d');
-
-    if (verdictChart) {
-        verdictChart.destroy();
-    }
-
-    const data = {
-        labels: distribution.map(d => d.verdict.charAt(0).toUpperCase() + d.verdict.slice(1)),
-        datasets: [{
-            data: distribution.map(d => d.count),
-            backgroundColor: [
-                '#EF4444', // Red for phishing
-                '#10B981', // Green for safe
-                '#F59E0B', // Yellow for suspicious
-            ],
-            borderWidth: 0,
-        }]
-    };
-
-    verdictChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: data,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                }
-            }
-        }
-    });
-}
-
-// Update Trends Chart
-function updateTrendsChart(trendsData) {
-    const ctx = document.getElementById('trends-chart').getContext('2d');
-
-    if (trendsChart) {
-        trendsChart.destroy();
-    }
-
-    // Group by date
-    const dateGroups = {};
-    trendsData.data.forEach(point => {
-        if (!dateGroups[point.date]) {
-            dateGroups[point.date] = { phishing: 0, safe: 0, suspicious: 0 };
-        }
-        dateGroups[point.date][point.verdict] = point.count;
-    });
-
-    const labels = Object.keys(dateGroups).sort();
-
-    trendsChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels.map(d => {
-                const date = new Date(d);
-                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            }),
-            datasets: [
-                {
-                    label: 'Phishing',
-                    data: labels.map(d => dateGroups[d].phishing),
-                    borderColor: '#EF4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    fill: true,
-                },
-                {
-                    label: 'Safe',
-                    data: labels.map(d => dateGroups[d].safe),
-                    borderColor: '#10B981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    fill: true,
-                },
-                {
-                    label: 'Suspicious',
-                    data: labels.map(d => dateGroups[d].suspicious),
-                    borderColor: '#F59E0B',
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    fill: true,
-                },
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                }
-            }
-        }
-    });
-}
-
-// Update Feed Status
-function updateFeedStatus(feeds) {
-    const container = document.getElementById('feed-status');
-
-    if (!feeds || feeds.length === 0) {
-        container.innerHTML = '<div class="text-gray-400 text-sm">No feed data available</div>';
-        return;
-    }
-
-    container.innerHTML = feeds.map(feed => {
-        const statusColor = {
-            healthy: 'bg-green-500',
-            degraded: 'bg-yellow-500',
-            error: 'bg-red-500',
-        }[feed.status] || 'bg-gray-500';
-
-        const statusText = feed.status.charAt(0).toUpperCase() + feed.status.slice(1);
-        const lastUpdate = feed.last_update
-            ? new Date(feed.last_update).toLocaleTimeString()
-            : 'Never';
-
-        return `
-            <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                <div class="flex items-center space-x-3">
-                    <div class="w-2 h-2 rounded-full ${statusColor}"></div>
-                    <span class="font-medium text-gray-700">${feed.source}</span>
-                </div>
-                <div class="text-right">
-                    <div class="text-xs text-gray-500">${statusText}</div>
-                    <div class="text-xs text-gray-400">${feed.indicator_count} indicators</div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// Update Recent Scans Table
-function updateRecentScans(scans) {
-    const tbody = document.getElementById('scans-table');
-
-    if (!scans || scans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-gray-400 py-4">No recent scans</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = scans.map(scan => {
-        const verdictClass = `verdict-${scan.verdict}`;
-        const url = scan.url.length > 40
-            ? scan.url.substring(0, 40) + '...'
-            : scan.url;
-
-        const timeAgo = getTimeAgo(new Date(scan.created_at));
-
-        return `
-            <tr class="border-b border-gray-50 hover:bg-gray-50">
-                <td class="py-3">
-                    <div class="font-medium text-gray-800" title="${scan.url}">${url}</div>
-                    ${scan.target_brand ? `<div class="text-xs text-gray-400">Target: ${scan.target_brand}</div>` : ''}
-                </td>
-                <td class="py-3">
-                    <span class="verdict-badge ${verdictClass}">${scan.verdict}</span>
-                </td>
-                <td class="py-3 text-gray-600">${Math.round(scan.confidence * 100)}%</td>
-                <td class="py-3 text-gray-400 text-xs">${timeAgo}</td>
-            </tr>
-        `;
-    }).join('');
-}
-
-// Helper: Time ago
 function getTimeAgo(date) {
-    const seconds = Math.floor((new Date() - date) / 1000);
-
+    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+// Update stat cards
+function updateStats(summary) {
+    const total = summary.total_scans || 0;
+    const phishing = summary.phishing_detected || 0;
+    const safe = summary.safe_urls || 0;
+    const suspicious = summary.suspicious_urls || 0;
+
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-phishing').textContent = phishing;
+    document.getElementById('stat-safe').textContent = safe;
+    document.getElementById('stat-suspicious').textContent = suspicious;
+
+    const t = total || 1;
+    document.getElementById('stat-phishing-pct').textContent = `${Math.round(phishing / t * 100)}%`;
+    document.getElementById('stat-safe-pct').textContent = `${Math.round(safe / t * 100)}%`;
+    document.getElementById('stat-suspicious-pct').textContent = `${Math.round(suspicious / t * 100)}%`;
+}
+
+// CSS horizontal bars for verdict distribution
+function updateVerdictBars(distribution) {
+    if (!distribution || distribution.length === 0) return;
+
+    const counts = { safe: 0, phishing: 0, suspicious: 0 };
+    distribution.forEach(d => { counts[d.verdict] = d.count; });
+
+    const max = Math.max(counts.safe, counts.phishing, counts.suspicious, 1);
+
+    document.getElementById('bar-safe').style.width = `${(counts.safe / max) * 100}%`;
+    document.getElementById('bar-phishing').style.width = `${(counts.phishing / max) * 100}%`;
+    document.getElementById('bar-suspicious').style.width = `${(counts.suspicious / max) * 100}%`;
+
+    document.getElementById('count-safe').textContent = counts.safe;
+    document.getElementById('count-phishing').textContent = counts.phishing;
+    document.getElementById('count-suspicious').textContent = counts.suspicious;
+}
+
+// CSS vertical bars for scan trend (last 7 days)
+function updateTrendBars(trendsData) {
+    const container = document.getElementById('trend-bars');
+    if (!trendsData || !trendsData.data || trendsData.data.length === 0) {
+        container.innerHTML = '<div style="font-size:12px;color:#888;width:100%;text-align:center;">No trend data</div>';
+        return;
+    }
+
+    // Group by date
+    const dateGroups = {};
+    trendsData.data.forEach(point => {
+        if (!dateGroups[point.date]) dateGroups[point.date] = 0;
+        dateGroups[point.date] += point.count;
+    });
+
+    const dates = Object.keys(dateGroups).sort().slice(-7);
+    if (dates.length === 0) return;
+
+    const maxCount = Math.max(...dates.map(d => dateGroups[d]), 1);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const today = new Date().toISOString().slice(0, 10);
+
+    container.innerHTML = dates.map(date => {
+        const count = dateGroups[date];
+        const heightPx = Math.max(Math.round((count / maxCount) * 110), 6); // use 110px max (container is 120px)
+        const isToday = date === today;
+        const dayLabel = dayNames[new Date(date + 'T12:00:00').getDay()];
+
+        return `
+            <div class="bar-v-wrap" style="flex:1;">
+                <div style="font-size:10px;color:#888;margin-bottom:4px;">${count}</div>
+                <div class="bar-v ${isToday ? 'today' : ''}" style="height:${heightPx}px;"></div>
+                <div style="font-size:11px;color:${isToday ? '#185FA5' : '#888'};margin-top:6px;">${dayLabel}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Feed status list
+function updateFeedStatus(feeds) {
+    const container = document.getElementById('feed-status');
+
+    if (!feeds || feeds.length === 0) {
+        container.innerHTML = '<div style="font-size:13px;color:#888;">No feed data available</div>';
+        return;
+    }
+
+    container.innerHTML = feeds.map(feed => {
+        let pillClass = 'pill-blue';
+        let statusText = 'Unknown';
+        if (feed.status === 'live') { pillClass = 'pill-green'; statusText = 'Live'; }
+        else if (feed.status === 'not_configured') { pillClass = 'pill-blue'; statusText = 'Not configured'; }
+        else if (feed.status === 'healthy') { pillClass = 'pill-green'; statusText = 'Online'; }
+        else if (feed.status === 'degraded') { pillClass = 'pill-amber'; statusText = 'Degraded'; }
+        else if (feed.status === 'error') { pillClass = 'pill-red'; statusText = 'Offline'; }
+
+        const lastUpdate = feed.last_update ? getTimeAgo(feed.last_update) : '—';
+
+        return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid rgba(0,0,0,0.06);">
+                <span style="font-size:13px;">${feed.source}</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:11px;color:#888;">${lastUpdate}</span>
+                    <span class="pill ${pillClass}">${statusText}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Recent scans table
+function updateRecentScans(scans) {
+    const container = document.getElementById('scans-table');
+    const emptyState = document.getElementById('empty-state');
+
+    if (!scans || scans.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+
+    const verdictPill = (v) => {
+        const cls = { safe: 'pill-green', phishing: 'pill-red', suspicious: 'pill-amber' }[v] || 'pill-blue';
+        return `<span class="pill ${cls}">${v}</span>`;
+    };
+
+    container.innerHTML = scans.map(scan => {
+        const url = scan.url.length > 50 ? scan.url.substring(0, 50) + '...' : scan.url;
+        const timeAgo = getTimeAgo(scan.created_at);
+
+        return `
+            <div class="scan-row" onclick="window.location.href='/analyze?url=${encodeURIComponent(scan.url)}'"
+                 style="display:grid; grid-template-columns:1fr 100px 80px; padding:10px 12px; border-bottom:0.5px solid rgba(0,0,0,0.06); font-size:13px; align-items:center;">
+                <span class="url-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${scan.url}">${url}</span>
+                <span>${verdictPill(scan.verdict)}</span>
+                <span style="text-align:right;color:#888;font-size:12px;">${timeAgo}</span>
+            </div>
+        `;
+    }).join('');
+}
+
 // Fetch all dashboard data
 async function fetchDashboardData() {
     try {
-        // Fetch combined dashboard stats
         const dashboardData = await apiFetch('/stats/dashboard?days=7');
-
         updateStats(dashboardData.summary);
-        updateVerdictChart(dashboardData.verdict_distribution);
+        updateVerdictBars(dashboardData.verdict_distribution);
         updateFeedStatus(dashboardData.feed_status);
 
-        // Fetch recent scans
         const scansData = await apiFetch('/scans/recent?limit=10');
         updateRecentScans(scansData.scans);
 
-        // Fetch trends (separate endpoint)
         try {
             const trendsData = await apiFetch('/stats/trends?days=7');
-            updateTrendsChart(trendsData);
+            updateTrendBars(trendsData);
         } catch (e) {
             console.log('Trends data not available');
         }
-
     } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
-        showError('Failed to load dashboard data. Check API connection.');
     }
 }
 
-// Show error message
-function showError(message) {
-    // Could implement a toast notification here
-    console.error(message);
-}
-
-// Start auto-refresh
+// Auto-refresh
 function startAutoRefresh() {
-    if (refreshTimer) {
-        clearInterval(refreshTimer);
-    }
+    if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(fetchDashboardData, REFRESH_INTERVAL);
 }
 
-// Refresh button handler
-document.getElementById('refresh-btn').addEventListener('click', async () => {
-    const refreshText = document.getElementById('refresh-text');
-    const refreshLoading = document.getElementById('refresh-loading');
-
-    refreshText.classList.add('hidden');
-    refreshLoading.classList.remove('hidden');
-
-    await fetchDashboardData();
-
-    refreshText.classList.remove('hidden');
-    refreshLoading.classList.add('hidden');
-});
-
-// Initialize dashboard
 document.addEventListener('DOMContentLoaded', () => {
     fetchDashboardData();
     startAutoRefresh();

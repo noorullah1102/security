@@ -5,12 +5,12 @@ from typing import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker, Session
 from structlog import get_logger
 
 from src.config import get_settings
 from src.db.migrations import run_migration
-from src.db.repository import Database, ScanRepository
+from src.db.repository import Database
 
 logger = get_logger()
 
@@ -42,17 +42,27 @@ class DatabaseManager:
         run_migration(self._engine)
         logger.info("Database initialized", url=self.database_url)
 
-    def get_session(self) -> scoped_session:
-        """Get a new database session.
+    @contextmanager
+    def get_session(self) -> Generator[Session, None, None]:
+        """Get a database session as a context manager.
 
-        Returns:
-            SQLAlchemy scoped session
+        Yields:
+            SQLAlchemy Session
         """
-        return scoped_session(self._session_factory)
+        session = self._session_factory()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def close(self) -> None:
         """Close database connection."""
-        self._engine.dispose()
+        if self._engine:
+            self._engine.dispose()
 
     @classmethod
     def get_instance(cls) -> "DatabaseManager":
@@ -73,21 +83,3 @@ class DatabaseManager:
             Database instance
         """
         return cls.get_instance()._database
-    @classmethod
-    def get_session_generator(cls) -> Generator[scoped_session, None, None]:
-        """Get a session generator.
-
-        Returns:
-            SQLAlchemy scoped session generator
-        """
-        instance = cls.get_instance()
-        yield from scoped_session(instance._session_factory)
-
-    @classmethod
-    def get_scan_repository(cls) -> ScanRepository:
-        """Get scan repository instance.
-
-        Returns:
-            ScanRepository for scan history
-        """
-        return ScanRepository(cls.get_database())

@@ -1,8 +1,11 @@
 """Feed API routes for threat indicators and feed status management."""
 
+import csv
+import io
 from datetime import datetime
 from typing import Annotated, Any
 
+import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from structlog import get_logger
@@ -178,3 +181,125 @@ async def refresh_feeds(
         )
     finally:
         await aggregator.close()
+
+
+class LiveFeedEntry(BaseModel):
+    """Single live feed entry."""
+    url: str
+    source: str
+    threat_type: str = "phishing"
+    first_seen: str | None = None
+
+
+class LiveFeedResponse(BaseModel):
+    """Response from live feed fetch."""
+    entries: list[LiveFeedEntry]
+    total: int
+    sources_queried: list[str]
+
+
+@router.get(
+    "/live",
+    response_model=LiveFeedResponse,
+    summary="Get live threat URLs from free feeds",
+)
+async def get_live_feed(
+    api_key: Annotated[str, Depends(verify_api_key)],
+    source: str | None = Query(default=None, description="Filter by source"),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> LiveFeedResponse:
+    """Fetch live threat URLs directly from free feeds (no API keys needed).
+
+    Sources: URLhaus (plain text), OpenPhish (feed.txt), PhishTank (CSV or cache).
+    Each source is fetched independently — one failure doesn't affect others.
+    """
+    entries: list[LiveFeedEntry] = []
+    sources_queried: list[str] = []
+    timeout = aiohttp.ClientTimeout(total=20, connect=8)
+
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        # URLhaus — plain text URL list (no auth needed)
+        if not source or source == "urlhaus":
+            sources_queried.append("urlhaus")
+            try:
+                async with session.get("https://urlhaus.abuse.ch/downloads/text_online/") as resp:
+                    if resp.status == 200:
+                        text = await resp.text()
+                        urls = [
+                            line.strip() for line in text.strip().split("\n")
+                            if line.strip() and not line.startswith("#")
+                        ]
+                        for url in urls[:limit]:
+                            entries.append(LiveFeedEntry(url=url, source="urlhaus", threat_type="malware_download"))
+                        logger.info("Live URLhaus fetched", count=min(len(urls), limit))
+            except Exception as e:
+                logger.warning("Live URLhaus fetch failed", error=str(e))
+
+        # OpenPhish — feed.txt (no auth needed)
+        if not source or source == "openphish":
+            sources_queried.append("openphish")
+            try:
+                async with session.get("https://openphish.com/feed.txt") as resp:
+                    if resp.status == 200:
+                        text = await resp.text()
+                        urls = [line.strip() for line in text.strip().split("\n") if line.strip()]
+                        for url in urls[:limit]:
+                            entries.append(LiveFeedEntry(url=url, source="openphish", threat_type="phishing"))
+                        logger.info("Live OpenPhish fetched", count=len(urls[:limit]))
+            except Exception as e:
+                logger.warning("Live OpenPhish fetch failed", error=str(e))
+
+        # PhishTank — try CSV (often 403), fall back to disk cache
+        if not source or source == "phishtank":
+            sources_queried.append("phishtank")
+            phishtank_ok = False
+            try:
+                feed_urls = [
+                    "https://data.phishtank.com/data/online-valid.csv",
+                    "http://data.phishtank.com/data/online-valid.csv",
+                ]
+                for feed_url in feed_urls:
+                    try:
+                        async with session.get(feed_url) as resp:
+                            if resp.status == 200:
+                                text = await resp.text()
+                                reader = csv.DictReader(io.StringIO(text))
+                                count = 0
+                                for row in reader:
+                                    if row.get("url") and count < limit:
+                                        entries.append(LiveFeedEntry(
+                                            url=row["url"],
+                                            source="phishtank",
+                                            threat_type="phishing",
+                                            first_seen=row.get("submission_time"),
+                                        ))
+                                        count += 1
+                                phishtank_ok = True
+                                logger.info("Live PhishTank fetched from CSV", count=count)
+                                break
+                    except Exception:
+                        continue
+            except Exception as e:
+                logger.warning("Live PhishTank CSV failed", error=str(e))
+
+            # Fallback: load from disk cache if CSV failed
+            if not phishtank_ok:
+                try:
+                    from pathlib import Path
+                    import json
+                    cache_file = Path("data") / "phishtank_cache.json"
+                    if cache_file.exists():
+                        with open(cache_file) as f:
+                            cached_urls = json.load(f)
+                        for url in cached_urls[:limit]:
+                            entries.append(LiveFeedEntry(url=url, source="phishtank", threat_type="phishing"))
+                        logger.info("PhishTank loaded from disk cache", count=min(len(cached_urls), limit))
+                except Exception as e:
+                    logger.warning("PhishTank disk cache failed", error=str(e))
+
+    # Each source gets up to `limit` entries, no total cap
+    return LiveFeedResponse(
+        entries=entries,
+        total=len(entries),
+        sources_queried=sources_queried,
+    )

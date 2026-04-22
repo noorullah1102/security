@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Threat Feed — PhishRadar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+        .font-mono, .url-text { font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace; }
+        body { background: #F7F7F5; color: #1a1a1a; }
+        .card { background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 10px; }
+        .nav-link { padding: 6px 14px; border-radius: 6px; font-size: 14px; color: #555; text-decoration: none; }
+        .nav-link:hover { background: #f0f0f0; }
+        .nav-link.active { background: #f0f0f0; color: #1a1a1a; font-weight: 500; }
+        .pill { font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 500; }
+        .pill-red { background: #FCEBEB; color: #A32D2D; }
+        .pill-amber { background: #FAEEDA; color: #854F0B; }
+        .pill-green { background: #EAF3DE; color: #3B6D11; }
+        .pill-blue { background: #E6F1FB; color: #185FA5; }
+        .tab { padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 0.5px solid rgba(0,0,0,0.1); background: #fff; color: #555; }
+        .tab:hover { background: #f0f0f0; }
+        .tab.active { background: #E24B4A; color: #fff; border-color: #E24B4A; }
+        .feed-row { display: flex; align-items: center; padding: 10px 0; border-bottom: 0.5px solid rgba(0,0,0,0.06); }
+        .feed-row:last-child { border-bottom: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin 0.8s linear infinite; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav style="background:#fff; border-bottom: 0.5px solid rgba(0,0,0,0.1);">
+        <div style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
+            <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <rect width="28" height="28" rx="6" fill="#E24B4A"/>
+                    <path d="M14 6 L14 6 L8 9.5V15.5C8 19.5 14 23 14 23C14 23 20 19.5 20 15.5V9.5L14 6Z" stroke="white" stroke-width="1.5" fill="none"/>
+                    <path d="M11.5 14L13 15.5L17 11.5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span style="font-weight:500; font-size:16px;">PhishRadar</span>
+            </a>
+            <div style="display:flex; align-items:center; gap:4px;">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/analyze" class="nav-link">URL Checker</a>
+                <a href="/threat-feed" class="nav-link active" style="display:flex;align-items:center;gap:6px;">
+                    Threat Feed
+                    <span class="pill pill-red" style="font-size:10px;">LIVE</span>
+                </a>
+                <a href="/bulk-scan" class="nav-link">Bulk Scan</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main -->
+    <main style="max-width:1120px; margin:0 auto; padding:24px 20px;">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+            <div>
+                <h1 style="font-size:18px;font-weight:500;margin:0;">Threat Feed</h1>
+                <div id="last-updated" style="font-size:12px;color:#888;margin-top:4px;">Last updated —</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button onclick="fetchLiveData()" id="live-btn" style="background:#E24B4A;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500;">
+                    Fetch Live Data
+                </button>
+                <button onclick="loadFeed()" style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;">
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+            <button class="tab active" data-source="" onclick="filterSource(this, '')">All threats</button>
+            <button class="tab" data-source="urlhaus" onclick="filterSource(this, 'urlhaus')">URLhaus</button>
+            <button class="tab" data-source="openphish" onclick="filterSource(this, 'openphish')">OpenPhish</button>
+        </div>
+
+        <!-- Feed List -->
+        <div class="card" style="padding:4px 16px;">
+            <div id="feed-list">
+                <div style="padding:30px;text-align:center;color:#888;font-size:13px;">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="empty-state" style="display:none;text-align:center;padding:40px 20px;">
+            <div style="font-size:14px;color:#888;margin-bottom:8px;">No threat indicators found</div>
+            <div style="font-size:12px;color:#888;">Click "Fetch Live Data" to pull from URLhaus, PhishTank, and other sources</div>
+        </div>
+    </main>
+
+    <footer style="border-top:0.5px solid rgba(0,0,0,0.1);padding:16px 20px;text-align:center;font-size:12px;color:#888;margin-top:32px;background:#fff;">
+        PhishRadar v1.0 — AI-Powered Phishing Detection
+    </footer>
+
+    <script>
+        const API_BASE = '/api/v1';
+        const API_KEY = 'dev-api-key';
+        let currentSource = '';
+        let refreshTimer = null;
+        let lastFetchTime = null;
+        let liveEntries = []; // cached live data
+
+        function getTimeAgo(date) {
+            if (!date) return '—';
+            const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+            if (seconds < 60) return 'Just now';
+            if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+            if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+            return `${Math.floor(seconds / 86400)}d ago`;
+        }
+
+        function filterSource(btn, source) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            currentSource = source;
+            if (liveEntries.length > 0) {
+                let filtered = currentSource ? liveEntries.filter(e => e.source === currentSource) : liveEntries;
+                renderFeed(filtered);
+            } else {
+                loadFeed();
+            }
+        }
+
+        async function loadFeed() {
+            const container = document.getElementById('feed-list');
+            const emptyState = document.getElementById('empty-state');
+
+            try {
+                // Try live feed endpoint (fetches from URLhaus, OpenPhish, PhishTank directly)
+                let url = `${API_BASE}/feeds/live?limit=100`;
+                if (currentSource) url += `&source=${currentSource}`;
+
+                const resp = await fetch(url, { headers: { 'X-API-Key': API_KEY } });
+
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.entries && data.entries.length > 0) {
+                        liveEntries = data.entries;
+                        renderFeed(data.entries);
+                        emptyState.style.display = 'none';
+                        lastFetchTime = new Date();
+                        updateLastUpdated();
+                        return;
+                    }
+                }
+
+                // Fallback 1: indicators from DB
+                let indUrl = `${API_BASE}/feeds/indicators?limit=100`;
+                if (currentSource) indUrl += `&source=${currentSource}`;
+                const indResp = await fetch(indUrl, { headers: { 'X-API-Key': API_KEY } });
+
+                if (indResp.ok) {
+                    const indData = await indResp.json();
+                    if (indData.indicators && indData.indicators.length > 0) {
+                        renderFeed(indData.indicators);
+                        emptyState.style.display = 'none';
+                        return;
+                    }
+                }
+
+                // Fallback 2: recent scans
+                let scansUrl = `${API_BASE}/scans/recent?limit=50`;
+                const scansResp = await fetch(scansUrl, { headers: { 'X-API-Key': API_KEY } });
+
+                if (scansResp.ok) {
+                    const scansData = await scansResp.json();
+                    if (scansData.scans && scansData.scans.length > 0) {
+                        let scans = scansData.scans.filter(s => s.verdict !== 'safe');
+                        if (scans.length > 0) {
+                            renderFeedFromScans(scans);
+                            emptyState.style.display = 'none';
+                            return;
+                        }
+                    }
+                }
+
+                // Nothing found
+                container.innerHTML = '';
+                emptyState.style.display = 'block';
+            } catch (err) {
+                console.error('Failed to load feed:', err);
+                container.innerHTML = '<div style="padding:30px;text-align:center;color:#A32D2D;font-size:13px;">Failed to load feed data</div>';
+            }
+        }
+
+        function renderFeed(entries) {
+            const container = document.getElementById('feed-list');
+            const sourcePill = (src) => {
+                const cls = {
+                    phishtank: 'pill-red', urlhaus: 'pill-red', openphish: 'pill-red',
+                    reddit: 'pill-amber', virustotal: 'pill-blue', google_safebrowsing: 'pill-blue',
+                    urlscan: 'pill-blue',
+                }[src] || 'pill-blue';
+                const label = {
+                    urlhaus: 'URLhaus', openphish: 'OpenPhish', phishtank: 'PhishTank',
+                    reddit: 'Reddit', virustotal: 'VirusTotal', google_safebrowsing: 'Google SB',
+                    urlscan: 'urlscan.io',
+                }[src] || src;
+                return `<span class="pill ${cls}">${label}</span>`;
+            };
+
+            container.innerHTML = entries.map(entry => {
+                const url = entry.url || '';
+                const source = entry.source || 'unknown';
+                const time = entry.first_seen || entry.first_seen || null;
+                return `
+                    <div class="feed-row" onclick="window.location.href='/analyze?url=${encodeURIComponent(url)}'" style="cursor:pointer;">
+                        <div class="url-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;padding-right:12px;" title="${url}">
+                            ${url}
+                        </div>
+                        ${sourcePill(source)}
+                        <span style="font-size:12px;color:#888;width:70px;text-align:right;margin-left:12px;">
+                            ${time ? getTimeAgo(time) : 'Live'}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+
+            updateLastUpdated();
+        }
+
+        function renderFeedFromScans(scans) {
+            const container = document.getElementById('feed-list');
+
+            container.innerHTML = scans.map(scan => {
+                const rules = scan.matched_rules || [];
+                let source = 'unknown';
+                if (rules.some(r => r.includes('urlhaus'))) source = 'urlhaus';
+                else if (rules.some(r => r.includes('phishtank'))) source = 'phishtank';
+                else if (rules.some(r => r.includes('reddit'))) source = 'reddit';
+                else source = 'scan';
+
+                const cls = { phishtank: 'pill-red', urlhaus: 'pill-red', reddit: 'pill-amber', scan: 'pill-blue' }[source];
+
+                return `
+                    <div class="feed-row" onclick="window.location.href='/analyze?url=${encodeURIComponent(scan.url)}'" style="cursor:pointer;">
+                        <div class="url-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;padding-right:12px;" title="${scan.url}">
+                            ${scan.url}
+                        </div>
+                        <span class="pill ${cls}">${source}</span>
+                        <span style="font-size:12px;color:#888;width:70px;text-align:right;margin-left:12px;">
+                            ${getTimeAgo(scan.created_at)}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+
+            updateLastUpdated();
+        }
+
+        async function fetchLiveData() {
+            const btn = document.getElementById('live-btn');
+            btn.textContent = 'Fetching...';
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch(`${API_BASE}/feeds/live?limit=100`, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
+
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.entries && data.entries.length > 0) {
+                        liveEntries = data.entries;
+                        lastFetchTime = new Date();
+
+                        // Apply current filter
+                        let filtered = currentSource ? liveEntries.filter(e => e.source === currentSource) : liveEntries;
+                        renderFeed(filtered);
+
+                        document.getElementById('empty-state').style.display = 'none';
+                        updateLastUpdated();
+                    } else {
+                        alert('No live data returned. Feeds may be temporarily unavailable.');
+                    }
+                } else {
+                    console.error('Live feed fetch failed:', resp.status);
+                    alert('Failed to fetch live data. Check if the server is running.');
+                }
+            } catch (err) {
+                console.error('Fetch live data error:', err);
+                alert('Failed to fetch live data: ' + err.message);
+            } finally {
+                btn.textContent = 'Fetch Live Data';
+                btn.disabled = false;
+            }
+        }
+
+        function updateLastUpdated() {
+            const el = document.getElementById('last-updated');
+            if (lastFetchTime) {
+                el.textContent = `Last updated ${getTimeAgo(lastFetchTime)}`;
+            } else {
+                el.textContent = `Last updated — auto-refreshes every 5 min`;
+            }
+        }
+
+        // Auto-refresh every 5 minutes
+        function startAutoRefresh() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(loadFeed, 300000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFeed();
+            startAutoRefresh();
+        });
+    </script>
+</body>
+</html>

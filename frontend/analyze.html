@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Checker — PhishRadar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+        .font-mono, .url-text { font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace; }
+        body { background: #F7F7F5; color: #1a1a1a; }
+        .card { background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 10px; }
+        .nav-link { padding: 6px 14px; border-radius: 6px; font-size: 14px; color: #555; text-decoration: none; }
+        .nav-link:hover { background: #f0f0f0; }
+        .nav-link.active { background: #f0f0f0; color: #1a1a1a; font-weight: 500; }
+        .pill { font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 500; }
+        .pill-red { background: #FCEBEB; color: #A32D2D; }
+        .pill-amber { background: #FAEEDA; color: #854F0B; }
+        .pill-green { background: #EAF3DE; color: #3B6D11; }
+        .pill-blue { background: #E6F1FB; color: #185FA5; }
+        .signal-card { border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 12px 14px; }
+        .signal-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+        .signal-value { font-size: 13px; font-weight: 500; }
+        .val-red { color: #A32D2D; }
+        .val-green { color: #3B6D11; }
+        .val-amber { color: #854F0B; }
+        .val-muted { color: #888; }
+        .verdict-block { border-radius: 10px; padding: 20px 24px; }
+        .vb-phishing { background: #FCEBEB; border: 0.5px solid #f0c0c0; }
+        .vb-suspicious { background: #FAEEDA; border: 0.5px solid #f0d8a0; }
+        .vb-safe { background: #EAF3DE; border: 0.5px solid #c0ddb0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin 0.8s linear infinite; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav style="background:#fff; border-bottom: 0.5px solid rgba(0,0,0,0.1);">
+        <div style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
+            <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <rect width="28" height="28" rx="6" fill="#E24B4A"/>
+                    <path d="M14 6 L14 6 L8 9.5V15.5C8 19.5 14 23 14 23C14 23 20 19.5 20 15.5V9.5L14 6Z" stroke="white" stroke-width="1.5" fill="none"/>
+                    <path d="M11.5 14L13 15.5L17 11.5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span style="font-weight:500; font-size:16px;">PhishRadar</span>
+            </a>
+            <div style="display:flex; align-items:center; gap:4px;">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/analyze" class="nav-link active">URL Checker</a>
+                <a href="/threat-feed" class="nav-link" style="display:flex;align-items:center;gap:6px;">
+                    Threat Feed
+                    <span class="pill pill-red" style="font-size:10px;">LIVE</span>
+                </a>
+                <a href="/bulk-scan" class="nav-link">Bulk Scan</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main -->
+    <main style="max-width:800px; margin:0 auto; padding:24px 20px;">
+
+        <!-- URL Input -->
+        <div class="card" style="padding:24px; margin-bottom:20px;">
+            <form id="check-form" onsubmit="scanUrl(event)">
+                <input
+                    type="text"
+                    id="url-input"
+                    placeholder="https://example.com/suspicious-link"
+                    class="font-mono"
+                    style="width:100%;padding:12px 14px;border:0.5px solid rgba(0,0,0,0.15);border-radius:8px;font-size:14px;outline:none;margin-bottom:12px;"
+                    required
+                >
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <button type="submit" id="scan-btn"
+                        style="background:#E24B4A;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;">
+                        <span id="btn-text">Scan URL</span>
+                        <span id="btn-loading" style="display:none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" class="spinner" style="display:inline-block;vertical-align:middle;">
+                                <circle cx="12" cy="12" r="10" stroke="white" stroke-width="3" fill="none" stroke-dasharray="30 70" />
+                            </svg>
+                            Scanning...
+                        </span>
+                    </button>
+                    <span style="font-size:12px;color:#888;">Supports http/https URLs — results pulled from live threat feeds</span>
+                </div>
+            </form>
+
+            <!-- Example URLs -->
+            <div style="margin-top:16px;padding-top:16px;border-top:0.5px solid rgba(0,0,0,0.08);">
+                <span style="font-size:12px;color:#888;">Try:</span>
+                <button onclick="checkUrl('https://google.com')" style="font-size:12px;background:#f0f0f0;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;margin-left:6px;">google.com</button>
+                <button onclick="checkUrl('https://paypa1-verify.com/login')" style="font-size:12px;background:#f0f0f0;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;margin-left:4px;">paypa1-verify.com</button>
+                <button onclick="checkUrl('http://45.9.156.250/bins/px86')" style="font-size:12px;background:#f0f0f0;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;margin-left:4px;">IP address</button>
+            </div>
+        </div>
+
+        <!-- Error -->
+        <div id="error-section" style="display:none;" class="card" style="padding:20px;">
+            <div style="background:#FCEBEB;border:0.5px solid #f0c0c0;border-radius:10px;padding:16px;">
+                <div style="font-weight:500;color:#A32D2D;margin-bottom:4px;">Analysis Failed</div>
+                <div id="error-message" style="font-size:13px;color:#A32D2D;"></div>
+            </div>
+        </div>
+
+        <!-- Results (hidden by default) -->
+        <div id="results-section" style="display:none;">
+
+            <!-- Verdict Block -->
+            <div id="verdict-card" class="verdict-block" style="margin-bottom:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                        <div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Verdict</div>
+                        <div id="verdict-text" style="font-size:22px;font-weight:500;text-transform:capitalize;">—</div>
+                    </div>
+                    <div id="risk-badge" style="font-size:12px;padding:4px 12px;border-radius:6px;font-weight:500;">
+                        <span id="risk-score">—</span>
+                    </div>
+                </div>
+                <div style="margin-top:12px;padding-top:12px;border-top:0.5px solid rgba(0,0,0,0.08);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;">
+                        <span style="color:#888;">Confidence</span>
+                        <span id="confidence-text" style="font-weight:500;">0%</span>
+                    </div>
+                    <div style="margin-top:6px;background:rgba(0,0,0,0.06);border-radius:4px;height:6px;overflow:hidden;">
+                        <div id="confidence-bar" style="height:6px;border-radius:4px;transition:width 0.5s ease;width:0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signal Grid — Domain Analysis -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+                <div class="signal-card">
+                    <div class="signal-label">Domain Age</div>
+                    <div id="sig-domain-age" class="signal-value val-muted">—</div>
+                </div>
+                <div class="signal-card">
+                    <div class="signal-label">SSL Certificate</div>
+                    <div id="sig-ssl" class="signal-value val-muted">—</div>
+                </div>
+                <div class="signal-card">
+                    <div class="signal-label">IP Address</div>
+                    <div id="sig-ip" class="signal-value val-muted">—</div>
+                </div>
+                <div class="signal-card">
+                    <div class="signal-label">Typosquat Target</div>
+                    <div id="sig-typosquat" class="signal-value val-muted">—</div>
+                </div>
+                <div class="signal-card">
+                    <div class="signal-label">Redirects</div>
+                    <div id="sig-redirects" class="signal-value val-muted">—</div>
+                </div>
+                <div class="signal-card">
+                    <div class="signal-label">Suspicious Keywords</div>
+                    <div id="sig-keywords" class="signal-value val-muted">—</div>
+                </div>
+            </div>
+
+            <!-- AI Explanation -->
+            <div id="ai-section" style="display:none;" class="card" style="margin-bottom:16px;">
+                <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:10px;padding:20px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <div style="width:12px;height:12px;border-radius:3px;background:#7C3AED;"></div>
+                        <span style="font-size:12px;color:#888;">AI Explanation</span>
+                    </div>
+                    <div id="ai-summary" style="font-size:14px;font-weight:500;margin-bottom:8px;"></div>
+                    <div id="ai-explanation" style="font-size:13px;color:#555;line-height:1.6;margin-bottom:12px;"></div>
+                    <div id="risk-factors-wrap" style="display:none;">
+                        <div style="font-size:12px;color:#888;margin-bottom:6px;">Risk Factors</div>
+                        <ul id="risk-factors" style="list-style:none;padding:0;margin:0;"></ul>
+                    </div>
+                    <div id="action-wrap" style="display:none;background:#f7f7f5;border-radius:6px;padding:10px 12px;margin-top:10px;">
+                        <div style="font-size:12px;color:#888;margin-bottom:2px;">Recommended Action</div>
+                        <div id="recommended-action" style="font-size:13px;font-weight:500;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matched Rules -->
+            <div id="rules-section" style="display:none;" class="card" style="padding:20px;">
+                <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:10px;padding:20px;">
+                    <div style="font-size:14px;font-weight:500;margin-bottom:12px;">Matched Rules</div>
+                    <ul id="rules-list" style="list-style:none;padding:0;margin:0;"></ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer style="border-top:0.5px solid rgba(0,0,0,0.1);padding:16px 20px;text-align:center;font-size:12px;color:#888;margin-top:32px;background:#fff;">
+        PhishRadar v1.0 — AI-Powered Phishing Detection
+    </footer>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const API_KEY = 'dev-api-key';
+
+        function checkUrl(url) {
+            document.getElementById('url-input').value = url;
+            document.getElementById('check-form').dispatchEvent(new Event('submit'));
+        }
+
+        async function scanUrl(e) {
+            e.preventDefault();
+            const url = document.getElementById('url-input').value.trim();
+            if (!url) return;
+
+            // Loading state
+            document.getElementById('btn-text').style.display = 'none';
+            document.getElementById('btn-loading').style.display = 'inline';
+            document.getElementById('scan-btn').disabled = true;
+            document.getElementById('results-section').style.display = 'none';
+            document.getElementById('error-section').style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+                    body: JSON.stringify({ url, include_ai_explanation: true })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Analysis failed');
+                }
+
+                const result = await response.json();
+                displayResults(result);
+            } catch (err) {
+                document.getElementById('error-section').style.display = 'block';
+                document.getElementById('error-message').textContent = err.message;
+            } finally {
+                document.getElementById('btn-text').style.display = 'inline';
+                document.getElementById('btn-loading').style.display = 'none';
+                document.getElementById('scan-btn').disabled = false;
+            }
+        }
+
+        function displayResults(r) {
+            document.getElementById('results-section').style.display = 'block';
+
+            const v = r.verdict;
+            const conf = Math.round(r.confidence * 100);
+            const riskScore = Math.round(r.confidence * 100);
+
+            // Verdict block
+            const vc = document.getElementById('verdict-card');
+            vc.className = `verdict-block vb-${v}`;
+            document.getElementById('verdict-text').textContent = v;
+
+            const rb = document.getElementById('risk-badge');
+            const rbColors = { phishing: 'background:#FCEBEB;color:#A32D2D', suspicious: 'background:#FAEEDA;color:#854F0B', safe: 'background:#EAF3DE;color:#3B6D11' };
+            rb.style.cssText = rbColors[v] || rbColors.safe;
+            document.getElementById('risk-score').textContent = `${riskScore}/100`;
+
+            document.getElementById('confidence-text').textContent = `${conf}%`;
+            const bar = document.getElementById('confidence-bar');
+            bar.style.width = `${conf}%`;
+            bar.style.background = { phishing: '#A32D2D', suspicious: '#854F0B', safe: '#3B6D11' }[v] || '#888';
+
+            // Signal grid
+            updateSignals(r);
+
+            // AI explanation
+            if (r.ai_explanation) {
+                document.getElementById('ai-section').style.display = 'block';
+                document.getElementById('ai-summary').textContent = r.ai_explanation.summary || '';
+                document.getElementById('ai-explanation').textContent = r.ai_explanation.explanation || '';
+
+                const factors = r.ai_explanation.risk_factors || [];
+                if (factors.length > 0) {
+                    document.getElementById('risk-factors-wrap').style.display = 'block';
+                    document.getElementById('risk-factors').innerHTML = factors.map(f =>
+                        `<li style="font-size:12px;color:#A32D2D;padding:2px 0;">• ${f}</li>`
+                    ).join('');
+                } else {
+                    document.getElementById('risk-factors-wrap').style.display = 'none';
+                }
+
+                if (r.ai_explanation.recommended_action) {
+                    document.getElementById('action-wrap').style.display = 'block';
+                    document.getElementById('recommended-action').textContent = r.ai_explanation.recommended_action;
+                } else {
+                    document.getElementById('action-wrap').style.display = 'none';
+                }
+            } else {
+                document.getElementById('ai-section').style.display = 'none';
+            }
+
+            // Matched rules
+            const rules = r.matched_rules || [];
+            if (rules.length > 0) {
+                document.getElementById('rules-section').style.display = 'block';
+                document.getElementById('rules-list').innerHTML = rules.map(rule =>
+                    `<li style="font-size:12px;padding:4px 8px;margin-bottom:4px;background:#FAEEDA;border-radius:4px;color:#854F0B;">${rule.replace(/_/g, ' ')}</li>`
+                ).join('');
+            } else {
+                document.getElementById('rules-section').style.display = 'none';
+            }
+        }
+
+        function updateSignals(r) {
+            const features = r.features || {};
+
+            // Domain Age
+            const age = features.domain_age_days;
+            if (age === 0 || age === undefined || age === null) {
+                setSignal('sig-domain-age', 'Unknown', 'val-amber');
+            } else if (age < 30) {
+                setSignal('sig-domain-age', `${age} days old`, 'val-red');
+            } else {
+                setSignal('sig-domain-age', `${age} days`, 'val-green');
+            }
+
+            // SSL
+            if (!features.has_https) {
+                setSignal('sig-ssl', 'Missing', 'val-red');
+            } else if (features.ssl_valid) {
+                setSignal('sig-ssl', `Valid${features.ssl_issuer ? ' — ' + features.ssl_issuer : ''}`, 'val-green');
+            } else {
+                setSignal('sig-ssl', 'Invalid', 'val-red');
+            }
+
+            // IP Address
+            setSignal('sig-ip',
+                features.has_ip_address ? 'Uses IP address' : 'Domain name',
+                features.has_ip_address ? 'val-amber' : 'val-green'
+            );
+
+            // Typosquat Target
+            if (features.typosquat_target) {
+                setSignal('sig-typosquat', `Impersonates ${features.typosquat_target}`, 'val-red');
+            } else {
+                setSignal('sig-typosquat', 'None detected', 'val-green');
+            }
+
+            // Redirects
+            if (features.redirect_count >= 3) {
+                setSignal('sig-redirects', `${features.redirect_count} redirects`, 'val-amber');
+            } else {
+                setSignal('sig-redirects', `${features.redirect_count} redirect${features.redirect_count !== 1 ? 's' : ''}`, 'val-green');
+            }
+
+            // Suspicious Keywords
+            setSignal('sig-keywords',
+                features.has_suspicious_keywords ? 'Detected' : 'None',
+                features.has_suspicious_keywords ? 'val-amber' : 'val-green'
+            );
+        }
+
+        function setSignal(id, text, colorClass) {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = `signal-value ${colorClass}`;
+        }
+
+        // Pre-fill from query param
+        const params = new URLSearchParams(window.location.search);
+        const urlParam = params.get('url');
+        if (urlParam) {
+            document.getElementById('url-input').value = urlParam;
+        }
+    </script>
+</body>
+</html>

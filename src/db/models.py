@@ -9,16 +9,20 @@ from sqlalchemy.types import JSON
 
 
 class Base(DeclarativeBase):
-    """Base model with common fields."""
+    """Base model class."""
+    pass
 
+
+class TimestampMixin:
+    """Mixin for models with id and timestamp."""
     __abstract__ = True
     __allow_unmapped__ = True
 
-    id = Column(Text, primary_key=True, default=lambda: str(uuid4()))
-    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    id = mapped_column(Text, primary_key=True, default=lambda: str(uuid4()))
+    created_at = mapped_column(DateTime, default=lambda: datetime.utcnow())
 
 
-class ScanRecord(Base):
+class ScanRecord(Base, TimestampMixin):
     """Database record for scan history."""
 
     __tablename__ = "scan_history"
@@ -40,7 +44,7 @@ class ThreatIndicator(Base):
 
     __tablename__ = "threat_indicators"
 
-    id = mapped_column(Text, primary_key=True)
+    id = mapped_column(Text, primary_key=True, default=lambda: str(uuid4()))
     url = mapped_column(Text, nullable=False)
     threat_type = mapped_column(Text, nullable=False)  # phishing, malware, spam, other
     source = mapped_column(Text, nullable=False)  # phishtank, urlhaus, reddit
@@ -54,12 +58,16 @@ class ThreatIndicator(Base):
 
 
 class FeedStatus(Base):
-    """Tracks health of threat feed sources."""
+    """Tracks health of threat feed sources.
+
+    Uses 'source' as primary key (no id column).
+    """
 
     __tablename__ = "feed_status"
+    __table_args__ = {'extend_existing': True}
 
     source = mapped_column(Text, primary_key=True)  # phishtank, urlhaus, reddit
-    status = mapped_column(Text, nullable=False)  # healthy, degraded, error
+    status = mapped_column(Text, nullable=False, default="unknown")  # healthy, degraded, error
     last_update = mapped_column(DateTime, nullable=True)
     last_attempt = mapped_column(DateTime, nullable=True)
     indicator_count = mapped_column(Integer, default=0)

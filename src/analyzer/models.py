@@ -2,27 +2,30 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from src.analyzer.threat_checker import ThreatCheckResult
 
 
 @dataclass
 class URLFeatures:
     """Extracted features from a URL."""
 
-    domain_age_days: int
-    ssl_valid: bool
-    ssl_issuer: str | None
-    redirect_count: int
-    typosquat_target: str | None
-    has_ip_address: bool
-    url_length: int
-    path_depth: int
-    subdomain_count: int
-    has_https: bool
-    has_suspicious_keywords: bool
-    suspicious_tld: bool
+    domain_age_days: int = 0
+    ssl_valid: bool = False
+    ssl_issuer: str | None = None
+    redirect_count: int = 0
     redirect_chain: list[str] = field(default_factory=list)
+    typosquat_target: str | None = None
     typosquat_distance: int = 0
+    has_ip_address: bool = False
+    url_length: int = 0
+    path_depth: int = 0
+    subdomain_count: int = 0
+    has_https: bool = False
+    has_suspicious_keywords: bool = False
+    suspicious_tld: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -70,9 +73,11 @@ class AnalysisResult:
     feature_importance: dict[str, float] = field(default_factory=dict)
     analysis_timestamp: datetime = field(default_factory=datetime.utcnow)
     matched_rules: list[str] = field(default_factory=list)
+    threat_feed_result: "ThreatCheckResult | None" = None
+    prediction_source: str = "ml_model"  # "threat_feed" or "ml_model"
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "url": self.url,
             "verdict": self.verdict,
             "confidence": self.confidence,
@@ -80,4 +85,17 @@ class AnalysisResult:
             "feature_importance": self.feature_importance,
             "analysis_timestamp": self.analysis_timestamp.isoformat(),
             "matched_rules": self.matched_rules,
+            "prediction_source": self.prediction_source,
         }
+
+        if self.threat_feed_result:
+            result["threat_feed_info"] = {
+                "found_in_feeds": self.threat_feed_result.is_known_threat,
+                "sources": self.threat_feed_result.sources,
+                "details": {
+                    k: v for k, v in self.threat_feed_result.details.items()
+                    if v.get("found")
+                },
+            }
+
+        return result

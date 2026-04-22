@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Scan — PhishRadar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+        .font-mono, .url-text { font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace; }
+        body { background: #F7F7F5; color: #1a1a1a; }
+        .card { background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 10px; }
+        .nav-link { padding: 6px 14px; border-radius: 6px; font-size: 14px; color: #555; text-decoration: none; }
+        .nav-link:hover { background: #f0f0f0; }
+        .nav-link.active { background: #f0f0f0; color: #1a1a1a; font-weight: 500; }
+        .pill { font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 500; }
+        .pill-red { background: #FCEBEB; color: #A32D2D; }
+        .pill-amber { background: #FAEEDA; color: #854F0B; }
+        .pill-green { background: #EAF3DE; color: #3B6D11; }
+        .pill-blue { background: #E6F1FB; color: #185FA5; }
+        .export-btn { background:#fff; border:0.5px solid rgba(0,0,0,0.15); padding:8px 16px; border-radius:8px; font-size:13px; cursor:pointer; }
+        .export-btn:hover { background:#f5f5f5; }
+        .progress-bar { height:4px; background:#f0f0f0; border-radius:2px; overflow:hidden; }
+        .progress-fill { height:4px; background:#E24B4A; border-radius:2px; transition:width 0.3s ease; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav style="background:#fff; border-bottom: 0.5px solid rgba(0,0,0,0.1);">
+        <div style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
+            <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <rect width="28" height="28" rx="6" fill="#E24B4A"/>
+                    <path d="M14 6 L14 6 L8 9.5V15.5C8 19.5 14 23 14 23C14 23 20 19.5 20 15.5V9.5L14 6Z" stroke="white" stroke-width="1.5" fill="none"/>
+                    <path d="M11.5 14L13 15.5L17 11.5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span style="font-weight:500; font-size:16px;">PhishRadar</span>
+            </a>
+            <div style="display:flex; align-items:center; gap:4px;">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/analyze" class="nav-link">URL Checker</a>
+                <a href="/threat-feed" class="nav-link" style="display:flex;align-items:center;gap:6px;">
+                    Threat Feed
+                    <span class="pill pill-red" style="font-size:10px;">LIVE</span>
+                </a>
+                <a href="/bulk-scan" class="nav-link active">Bulk Scan</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main -->
+    <main style="max-width:1120px; margin:0 auto; padding:24px 20px;">
+
+        <!-- Input -->
+        <div class="card" style="padding:24px; margin-bottom:20px;">
+            <div style="font-size:16px;font-weight:500;margin-bottom:4px;">Bulk URL Scanner</div>
+            <div style="font-size:12px;color:#888;margin-bottom:16px;">Paste URLs below (one per line) to scan them all at once.</div>
+
+            <textarea id="url-input" class="font-mono" rows="8" placeholder="Paste one URL per line..."
+                style="width:100%;padding:12px;border:0.5px solid rgba(0,0,0,0.15);border-radius:8px;font-size:13px;resize:vertical;outline:none;"></textarea>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
+                <span style="font-size:12px;color:#888;">Up to 50 URLs per batch</span>
+                <button onclick="startBulkScan()" id="scan-btn"
+                    style="background:#E24B4A;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;">
+                    <span id="btn-text">Scan All</span>
+                    <span id="btn-loading" style="display:none;">Scanning...</span>
+                </button>
+            </div>
+
+            <!-- Progress -->
+            <div id="progress-section" style="display:none;margin-top:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <span id="progress-text" style="font-size:12px;color:#888;">Scanning 0 of 0...</span>
+                    <span id="progress-pct" style="font-size:12px;color:#888;">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill" style="width:0%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="results-section" style="display:none;">
+
+            <!-- Summary Bar -->
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+                <div style="font-size:14px;font-weight:500;">Results</div>
+                <span id="summary-phishing" style="font-size:13px;color:#A32D2D;font-weight:500;">0 Phishing</span>
+                <span style="color:#ddd;">|</span>
+                <span id="summary-suspicious" style="font-size:13px;color:#854F0B;font-weight:500;">0 Suspicious</span>
+                <span style="color:#ddd;">|</span>
+                <span id="summary-safe" style="font-size:13px;color:#3B6D11;font-weight:500;">0 Safe</span>
+                <div style="flex:1;"></div>
+                <button class="export-btn" onclick="exportJSON()">Export JSON</button>
+                <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+            </div>
+
+            <!-- Results Table -->
+            <div class="card">
+                <div style="display:grid;grid-template-columns:40px 1fr 100px 80px 80px;padding:10px 16px;border-bottom:0.5px solid rgba(0,0,0,0.1);font-size:12px;color:#888;">
+                    <span>#</span>
+                    <span>URL</span>
+                    <span>Verdict</span>
+                    <span>Score</span>
+                    <span style="text-align:right;">Time</span>
+                </div>
+                <div id="results-table"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer style="border-top:0.5px solid rgba(0,0,0,0.1);padding:16px 20px;text-align:center;font-size:12px;color:#888;margin-top:32px;background:#fff;">
+        PhishRadar v1.0 — AI-Powered Phishing Detection
+    </footer>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const API_KEY = 'dev-api-key';
+        let scanResults = [];
+
+        async function startBulkScan() {
+            const input = document.getElementById('url-input').value.trim();
+            if (!input) return;
+
+            let urls = input.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+
+            // Add https:// if missing
+            urls = urls.map(u => u.startsWith('http') ? u : 'https://' + u);
+
+            if (urls.length === 0) return;
+            if (urls.length > 50) {
+                alert('Maximum 50 URLs per batch. Trimming to first 50.');
+                urls = urls.slice(0, 50);
+            }
+
+            scanResults = [];
+            document.getElementById('btn-text').style.display = 'none';
+            document.getElementById('btn-loading').style.display = 'inline';
+            document.getElementById('scan-btn').disabled = true;
+            document.getElementById('results-section').style.display = 'none';
+            document.getElementById('progress-section').style.display = 'block';
+
+            const total = urls.length;
+            let processed = 0;
+
+            for (const url of urls) {
+                try {
+                    const resp = await fetch(`${API_BASE}/api/v1/analyze`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+                        body: JSON.stringify({ url, include_ai_explanation: false })
+                    });
+
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        scanResults.push(result);
+                    } else {
+                        scanResults.push({ url, verdict: 'error', confidence: 0, error: true });
+                    }
+                } catch (err) {
+                    scanResults.push({ url, verdict: 'error', confidence: 0, error: true });
+                }
+
+                processed++;
+                updateProgress(processed, total);
+            }
+
+            // Sort: phishing first, then suspicious, then safe
+            const order = { phishing: 0, error: 1, suspicious: 2, safe: 3 };
+            scanResults.sort((a, b) => (order[a.verdict] || 9) - (order[b.verdict] || 9));
+
+            displayResults();
+
+            document.getElementById('btn-text').style.display = 'inline';
+            document.getElementById('btn-loading').style.display = 'none';
+            document.getElementById('scan-btn').disabled = false;
+            document.getElementById('progress-section').style.display = 'none';
+        }
+
+        function updateProgress(current, total) {
+            const pct = Math.round((current / total) * 100);
+            document.getElementById('progress-text').textContent = `Scanning ${current} of ${total}...`;
+            document.getElementById('progress-pct').textContent = `${pct}%`;
+            document.getElementById('progress-fill').style.width = `${pct}%`;
+        }
+
+        function displayResults() {
+            document.getElementById('results-section').style.display = 'block';
+
+            const counts = { phishing: 0, suspicious: 0, safe: 0, error: 0 };
+            scanResults.forEach(r => { counts[r.verdict] = (counts[r.verdict] || 0) + 1; });
+
+            document.getElementById('summary-phishing').textContent = `${counts.phishing} Phishing`;
+            document.getElementById('summary-suspicious').textContent = `${counts.suspicious} Suspicious`;
+            document.getElementById('summary-safe').textContent = `${counts.safe} Safe`;
+
+            const verdictPill = (v) => {
+                const cls = { safe: 'pill-green', phishing: 'pill-red', suspicious: 'pill-amber', error: 'pill-blue' }[v] || 'pill-blue';
+                return `<span class="pill ${cls}">${v}</span>`;
+            };
+
+            const now = new Date();
+            document.getElementById('results-table').innerHTML = scanResults.map((r, i) => `
+                <div onclick="window.location.href='/analyze?url=${encodeURIComponent(r.url)}'"
+                     style="display:grid;grid-template-columns:40px 1fr 100px 80px 80px;padding:10px 16px;border-bottom:0.5px solid rgba(0,0,0,0.06);font-size:13px;align-items:center;cursor:pointer;">
+                    <span style="color:#888;">${i + 1}</span>
+                    <span class="url-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.url}">${r.url}</span>
+                    <span>${verdictPill(r.verdict)}</span>
+                    <span style="color:#888;">${r.error ? '—' : Math.round(r.confidence * 100) + '%'}</span>
+                    <span style="text-align:right;color:#888;font-size:12px;">${now.toLocaleTimeString()}</span>
+                </div>
+            `).join('');
+        }
+
+        function exportJSON() {
+            const blob = new Blob([JSON.stringify(scanResults, null, 2)], { type: 'application/json' });
+            downloadBlob(blob, 'phishguard-scan-results.json');
+        }
+
+        function exportCSV() {
+            const headers = ['url', 'verdict', 'confidence', 'severity'];
+            const rows = scanResults.map(r => [
+                `"${r.url}"`,
+                r.verdict,
+                Math.round(r.confidence * 100) + '%',
+                r.ai_explanation?.severity || ''
+            ].join(','));
+
+            const csv = [headers.join(','), ...rows].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            downloadBlob(blob, 'phishguard-scan-results.csv');
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

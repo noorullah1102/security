@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+
+# Environment variables (contains API keys!)
+.env
+.env.local
+
+# Database files
+*.db
+data/cache.db
+
+# ML model binaries (large files)
+models/*.pkl
+
+# Kaggle / large data files
+data/external/*.csv
+data/external/*.txt
+data/training/
+data/phishtank_cache.json
+data/phishtank_cache_meta.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# Claude Code
+.claude/settings.local.json

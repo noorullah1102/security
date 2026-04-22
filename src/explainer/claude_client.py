@@ -265,6 +265,14 @@ class AIThreatExplainer:
         # Generate explanation based on rules and features
         risk_factors = []
 
+        # Check if this was found in threat feeds
+        feed_sources = []
+        if result.threat_feed_result and result.threat_feed_result.is_known_threat:
+            feed_sources = result.threat_feed_result.sources
+            risk_factors.append(
+                f"Flagged by threat intelligence feed(s): {', '.join(feed_sources)}"
+            )
+
         if result.features.typosquat_target:
             risk_factors.append(f"Typosquatting detected: impersonating {result.features.typosquat_target}")
 
@@ -288,7 +296,7 @@ class AIThreatExplainer:
 
         # Determine severity
         if result.verdict == "phishing":
-            severity = "high"
+            severity = "critical" if feed_sources else "high"
             action = "Block this URL and report to your security team"
         elif result.verdict == "suspicious":
             severity = "medium"
@@ -297,12 +305,24 @@ class AIThreatExplainer:
             severity = "low"
             action = "No action required"
 
-        explanation = ThreatExplanation(
-            summary=f"This URL was classified as {result.verdict} with {result.confidence:.0%} confidence",
-            explanation=(
+        # Build summary and explanation
+        if feed_sources:
+            summary = f"This URL was flagged as a known threat by {', '.join(feed_sources)} with {result.confidence:.0%} confidence"
+            explanation_text = (
+                f"The URL {result.url} was identified as malicious by the following threat intelligence sources: "
+                f"{', '.join(feed_sources)}. "
+                f"This URL exists in verified threat databases, confirming it is actively used for malicious purposes."
+            )
+        else:
+            summary = f"This URL was classified as {result.verdict} with {result.confidence:.0%} confidence"
+            explanation_text = (
                 f"The URL {result.url} was analyzed using {len(result.matched_rules)} detection rules. "
                 f"Based on the detected patterns, it was classified as {result.verdict}."
-            ),
+            )
+
+        explanation = ThreatExplanation(
+            summary=summary,
+            explanation=explanation_text,
             risk_factors=risk_factors if risk_factors else ["No significant risk factors detected"],
             severity=severity,
             recommended_action=action,

@@ -163,22 +163,45 @@ async def get_verdict_distribution(
 )
 async def get_scan_trends(
     api_key: Annotated[str, Depends(verify_api_key)],
+    repo: Annotated[ScanRepository, Depends(get_scan_repository)],
     days: int = 7,
 ) -> TrendsResponse:
     """Get scan count trends grouped by day.
 
     Returns daily counts for each verdict type.
     """
-    # This would ideally be a database query with GROUP BY
-    # For now, return placeholder data
+    from sqlalchemy import text
+    from src.db.database import DatabaseManager
+
+    db = DatabaseManager.get_database()
     data_points = []
+
+    with db.engine.connect() as conn:
+        # Query actual scan counts grouped by date and verdict
+        result = conn.execute(text("""
+            SELECT DATE(created_at) as date, verdict, COUNT(*) as count
+            FROM scan_history
+            WHERE created_at >= datetime('now', :days_param)
+            GROUP BY DATE(created_at), verdict
+            ORDER BY date
+        """), {"days_param": f"-{days} days"})
+
+        # Build lookup: {date: {verdict: count}}
+        lookup = {}
+        for row in result:
+            date_str, verdict, count = row
+            if date_str not in lookup:
+                lookup[date_str] = {}
+            lookup[date_str][verdict] = count
+
+    # Fill in all dates (even ones with 0 scans)
     for i in range(days):
         date = (datetime.utcnow() - timedelta(days=days - i - 1)).strftime("%Y-%m-%d")
-        # Placeholder - would be replaced with actual DB query
+        day_data = lookup.get(date, {})
         data_points.extend([
-            TrendDataPoint(date=date, count=0, verdict="phishing"),
-            TrendDataPoint(date=date, count=0, verdict="safe"),
-            TrendDataPoint(date=date, count=0, verdict="suspicious"),
+            TrendDataPoint(date=date, count=day_data.get("phishing", 0), verdict="phishing"),
+            TrendDataPoint(date=date, count=day_data.get("safe", 0), verdict="safe"),
+            TrendDataPoint(date=date, count=day_data.get("suspicious", 0), verdict="suspicious"),
         ])
 
     return TrendsResponse(period_days=days, data=data_points)
@@ -253,18 +276,29 @@ async def get_dashboard_stats(
             ),
         ]
 
-    # Get feed status
-    feed_statuses = feed_repo.get_all_status()
-    feeds = [
-        FeedStatusResponse(
-            source=fs.source,
-            status=fs.status,
-            last_update=fs.last_update.isoformat() if fs.last_update else None,
-            indicator_count=fs.indicator_count or 0,
-            error_count=fs.error_count or 0,
-        )
-        for fs in feed_statuses
+    # Get feed status — show real status based on configuration
+    from src.config import get_settings
+    settings = get_settings()
+
+    ALL_FEED_SOURCES = [
+        ("urlhaus", "URLhaus", True),                              # Free, no key needed
+        ("openphish", "OpenPhish", True),                           # Free, no key needed
+        ("phishtank", "PhishTank", True),                           # Works without key (anonymous checkurl + DB fallback)
+        ("virustotal", "VirusTotal", bool(settings.virustotal_api_key)),
+        ("google_safebrowsing", "Google Safe Browsing", bool(settings.google_safebrowsing_api_key)),
+        ("urlscan", "urlscan.io", bool(settings.urlscan_api_key)),
+        ("reddit", "Reddit", bool(settings.reddit_client_id and settings.reddit_client_secret)),
     ]
+
+    feeds = []
+    for source_key, source_name, is_live in ALL_FEED_SOURCES:
+        feeds.append(FeedStatusResponse(
+            source=source_name,
+            status="live" if is_live else "not_configured",
+            last_update=None,
+            indicator_count=0,
+            error_count=0,
+        ))
 
     return DashboardStatsResponse(
         summary=summary,

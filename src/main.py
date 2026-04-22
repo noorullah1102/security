@@ -7,7 +7,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from src import __version__
@@ -119,14 +119,41 @@ def create_app() -> FastAPI:
     if frontend_dir.exists():
         app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
+    def serve_page(path: Path) -> HTMLResponse:
+        """Serve an HTML page with no-cache headers."""
+        if path.exists():
+            with open(path) as f:
+                content = f.read()
+            return HTMLResponse(content=content, headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            })
+        return HTMLResponse(content="Page not found.", status_code=404)
+
     # Dashboard route
     @app.get("/", include_in_schema=False)
     async def dashboard():
         """Serve the dashboard HTML."""
-        index_path = frontend_dir / "index.html"
-        if index_path.exists():
-            return FileResponse(index_path)
-        return {"message": "PhishRadar API is running. Frontend not built."}
+        return serve_page(frontend_dir / "index.html")
+
+    # Analyze page route
+    @app.get("/analyze", include_in_schema=False)
+    async def analyze_page():
+        """Serve the URL analysis page."""
+        return serve_page(frontend_dir / "analyze.html")
+
+    # Threat Feed page route
+    @app.get("/threat-feed", include_in_schema=False)
+    async def threat_feed_page():
+        """Serve the Threat Feed page."""
+        return serve_page(frontend_dir / "threat-feed.html")
+
+    # Bulk Scan page route
+    @app.get("/bulk-scan", include_in_schema=False)
+    async def bulk_scan_page():
+        """Serve the Bulk Scan page."""
+        return serve_page(frontend_dir / "bulk-scan.html")
 
     # Exception handlers
     @app.exception_handler(Exception)

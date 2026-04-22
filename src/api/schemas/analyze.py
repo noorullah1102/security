@@ -90,6 +90,18 @@ class AIExplanationResponse(BaseModel):
     )
 
 
+class ThreatFeedInfoResponse(BaseModel):
+    """Information about threat feed matches."""
+
+    found_in_feeds: bool = Field(..., description="Whether URL was found in threat feeds")
+    sources: list[str] = Field(
+        default_factory=list, description="Threat feed sources that matched"
+    )
+    details: dict[str, Any] = Field(
+        default_factory=dict, description="Details from each source"
+    )
+
+
 class AnalyzeResponse(BaseModel):
     """Response schema for URL analysis."""
 
@@ -109,6 +121,12 @@ class AnalyzeResponse(BaseModel):
     )
     ai_explanation: AIExplanationResponse | None = Field(
         None, description="AI-generated explanation (if requested)"
+    )
+    threat_feed_info: ThreatFeedInfoResponse | None = Field(
+        None, description="Threat feed information (if checked)"
+    )
+    prediction_source: str = Field(
+        "ml_model", description="Source of prediction: 'threat_feed' or 'ml_model'"
     )
     analysis_timestamp: datetime = Field(..., description="Timestamp of analysis")
     cached: bool = Field(False, description="Whether result was served from cache")

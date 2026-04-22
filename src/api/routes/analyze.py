@@ -1,11 +1,10 @@
 """URL Analysis API endpoints."""
 
 import time
-from datetime import datetime
 from typing import Annotated
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from structlog import get_logger
 
 from src.api.middleware.auth import verify_api_key
 from src.api.schemas.analyze import (
@@ -23,6 +22,7 @@ from src.db.repository import ScanRepository
 from src.explainer.claude_client import AIThreatExplainer
 
 router = APIRouter(prefix="/api/v1", tags=["Analysis"])
+logger = get_logger()
 
 # Initialize analyzer and explainer (will be dependency-injected later)
 _analyzer: URLAnalyzer | None = None
@@ -159,10 +159,7 @@ def _save_scan(
     Returns:
         Scan ID
     """
-    from src.db.models import ScanRecord
-
-    scan = ScanRecord(
-        id=str(uuid4()),
+    return repo.save(
         url=result.url,
         verdict=result.verdict,
         confidence=result.confidence,
@@ -172,17 +169,18 @@ def _save_scan(
             "ssl_valid": result.features.ssl_valid,
             "redirect_count": result.features.redirect_count,
             "typosquat_target": result.features.typosquat_target,
+            "typosquat_distance": result.features.typosquat_distance,
             "has_suspicious_keywords": result.features.has_suspicious_keywords,
             "url_length": result.features.url_length,
+            "path_depth": result.features.path_depth,
+            "subdomain_count": result.features.subdomain_count,
             "has_https": result.features.has_https,
+            "suspicious_tld": result.features.suspicious_tld,
+            "has_ip_address": result.features.has_ip_address,
         },
         ai_explanation=ai_explanation.model_dump() if ai_explanation else None,
         target_brand=result.features.typosquat_target,
-        created_at=datetime.utcnow(),
     )
-
-    repo.save(scan)
-    return scan.id
 
 
 @router.post(
@@ -201,6 +199,11 @@ async def analyze_url(
 ) -> AnalyzeResponse:
     """Analyze a URL for phishing indicators.
 
+    Analysis Flow:
+    1. Check threat feeds FIRST (URLhaus, OpenPhish, Reddit, PhishTank, VirusTotal, Google Safe Browsing)
+    2. If found in feeds → Return verdict with AI explanation
+    3. If not found → Use ML model + rules for analysis
+
     Requires valid API key in X-API-Key header.
 
     Returns analysis including:
@@ -210,9 +213,62 @@ async def analyze_url(
     - Feature importance
     - Matched detection rules
     - Optional AI-generated explanation
+    - Feed check results (if found)
     """
+    threat_checker = None
     try:
-        result = analyzer.analyze(request.url)
+        # Step 1: Check threat feeds FIRST (fast)
+        from src.analyzer.threat_checker import ThreatFeedChecker
+        from datetime import datetime
+        from src.analyzer.models import AnalysisResult, URLFeatures
+
+        threat_checker = ThreatFeedChecker()
+        threat_result = await threat_checker.check_all_sources(request.url)
+
+        # Step 2: If found in feeds, return immediately with AI explanation
+        if threat_result.is_known_threat:
+            # Create minimal result from feed data
+            features = URLFeatures(
+                domain_age_days=0,
+                ssl_valid=False,
+                ssl_issuer=None,
+                redirect_count=0,
+                redirect_chain=[],
+                typosquat_target=threat_result.target_brand,
+                typosquat_distance=0,
+                has_ip_address=False,
+                url_length=len(request.url),
+                path_depth=request.url.count('/') - 2,
+                has_suspicious_keywords=True,
+                subdomain_count=0,
+                has_https=request.url.startswith('https'),
+                suspicious_tld=False,
+            )
+
+            result = AnalysisResult(
+                url=request.url,
+                verdict="phishing",
+                confidence=0.98,
+                features=features,
+                feature_importance={"threat_feed_match": 1.0},
+                analysis_timestamp=datetime.utcnow(),
+                matched_rules=[f"known_threat:{src}" for src in threat_result.sources],
+                threat_feed_result=threat_result,
+            )
+
+            # Get AI explanation for feed result
+            ai_explanation = None
+            if request.include_ai_explanation:
+                ai_explanation = await _get_ai_explanation(result, explainer)
+
+            # Save to database
+            _save_scan(repo, result, ai_explanation)
+
+            return _result_to_response(result, ai_explanation)
+
+        # Step 3: Not found in feeds, use full ML + rules analysis
+        # Skip feeds in analyzer since we already checked them
+        result = await analyzer.analyze_async(request.url, skip_feeds=True)
 
         # Get AI explanation if requested
         ai_explanation = None
@@ -224,11 +280,17 @@ async def analyze_url(
 
         return _result_to_response(result, ai_explanation)
 
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error("Analysis failed", url=request.url, error=str(e), exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Analysis failed: {str(e)}",
         )
+    finally:
+        if threat_checker:
+            await threat_checker.close()
 
 
 @router.post(
@@ -256,7 +318,7 @@ async def analyze_batch(
 
     for url in request.urls:
         try:
-            result = analyzer.analyze(url)
+            result = await analyzer.analyze_async(url)
 
             # Get AI explanation if requested
             ai_explanation = None
