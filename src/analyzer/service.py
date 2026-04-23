@@ -60,16 +60,23 @@ class URLAnalyzer:
         try:
             from src.ml.train_with_kaggle import KaggleFeatureExtractor
             import joblib
+            import os
 
             model_path = "models/classifier_kaggle.pkl"
-            if joblib.load:
-                import os
-                if os.path.exists(model_path):
-                    self.ml_classifier = joblib.load(model_path)
-                    self.fast_feature_extractor = KaggleFeatureExtractor()
-                    self._model_type = "kaggle"
-                    logger.info("Kaggle-trained ML classifier loaded successfully", path=model_path)
-                    return
+            vec_path = "models/tfidf_vectorizers.pkl"
+            if os.path.exists(model_path):
+                self.ml_classifier = joblib.load(model_path)
+                self.fast_feature_extractor = KaggleFeatureExtractor()
+                self._model_type = "kaggle"
+
+                # Load TF-IDF vectorizers if available
+                if os.path.exists(vec_path):
+                    self._vectorizers = joblib.load(vec_path)
+                    logger.info("Kaggle ML classifier + TF-IDF vectorizers loaded", path=model_path)
+                else:
+                    self._vectorizers = None
+                    logger.info("Kaggle ML classifier loaded (no TF-IDF vectorizers)", path=model_path)
+                return
         except Exception as e:
             logger.debug("Kaggle model not available", error=str(e))
 
@@ -164,19 +171,41 @@ class URLAnalyzer:
             try:
                 # Use fast feature extractor for real-data model, or fall back
                 if self.fast_feature_extractor is not None:
-                    # Kaggle or real-data model with lexical features
-                    fast_features = self.fast_feature_extractor.extract(url)
-                    feature_vector = self.fast_feature_extractor.to_vector(fast_features)
+                    # Check if TF-IDF vectorizers are available
+                    if hasattr(self, '_vectorizers') and self._vectorizers is not None:
+                        from scipy.sparse import hstack
+                        import numpy as np
+                        import re
+
+                        # TF-IDF features
+                        char_tfidf = self._vectorizers["char_tfidf"]
+                        word_tfidf = self._vectorizers["word_tfidf"]
+                        X_char = char_tfidf.transform([url])
+                        X_word = word_tfidf.transform([url])
+
+                        # Lexical features
+                        fast_features = self.fast_feature_extractor.extract(url)
+                        X_lex = np.array([self.fast_feature_extractor.to_vector(fast_features)])
+
+                        # Combine
+                        feature_vector = hstack([X_char, X_word, X_lex])
+                    else:
+                        # Lexical features only
+                        fast_features = self.fast_feature_extractor.extract(url)
+                        feature_vector = self.fast_feature_extractor.to_vector(fast_features)
+                        import numpy as np
+                        feature_vector = np.array(feature_vector).reshape(1, -1)
                 else:
                     # Synthetic model with full features
                     feature_vector = features.to_feature_vector()
+                    import numpy as np
+                    feature_vector = np.array(feature_vector).reshape(1, -1)
 
                 # Handle sklearn model (from Kaggle training) vs URLClassifier
                 if hasattr(self.ml_classifier, 'predict_proba'):
                     # Sklearn model - returns probability
-                    import numpy as np
-                    feature_vector_np = np.array(feature_vector).reshape(1, -1)
-                    proba = self.ml_classifier.predict_proba(feature_vector_np)[0]
+                    # feature_vector is already shaped correctly (sparse matrix or numpy array)
+                    proba = self.ml_classifier.predict_proba(feature_vector)[0]
                     phishing_proba = proba[1] if len(proba) > 1 else proba[0]
                     ml_verdict = "phishing" if phishing_proba > 0.5 else "safe"
                     ml_confidence = float(max(phishing_proba, 1 - phishing_proba))
@@ -270,17 +299,39 @@ class URLAnalyzer:
         if self.use_ml and self.ml_classifier is not None:
             try:
                 if self.fast_feature_extractor is not None:
-                    fast_features = self.fast_feature_extractor.extract(url)
-                    feature_vector = self.fast_feature_extractor.to_vector(fast_features)
+                    # Check if TF-IDF vectorizers are available
+                    if hasattr(self, '_vectorizers') and self._vectorizers is not None:
+                        from scipy.sparse import hstack
+                        import numpy as np
+                        import re
+
+                        # TF-IDF features
+                        char_tfidf = self._vectorizers["char_tfidf"]
+                        word_tfidf = self._vectorizers["word_tfidf"]
+                        X_char = char_tfidf.transform([url])
+                        X_word = word_tfidf.transform([url])
+
+                        # Lexical features
+                        fast_features = self.fast_feature_extractor.extract(url)
+                        X_lex = np.array([self.fast_feature_extractor.to_vector(fast_features)])
+
+                        # Combine
+                        feature_vector = hstack([X_char, X_word, X_lex])
+                    else:
+                        # Lexical features only
+                        fast_features = self.fast_feature_extractor.extract(url)
+                        feature_vector = self.fast_feature_extractor.to_vector(fast_features)
+                        import numpy as np
+                        feature_vector = np.array(feature_vector).reshape(1, -1)
                 else:
+                    # Synthetic model with full features
                     feature_vector = features.to_feature_vector()
+                    import numpy as np
+                    feature_vector = np.array(feature_vector).reshape(1, -1)
 
                 # Handle sklearn model (from Kaggle training) vs URLClassifier
                 if hasattr(self.ml_classifier, 'predict_proba'):
-                    # Sklearn model - returns probability
-                    import numpy as np
-                    feature_vector_np = np.array(feature_vector).reshape(1, -1)
-                    proba = self.ml_classifier.predict_proba(feature_vector_np)[0]
+                    proba = self.ml_classifier.predict_proba(feature_vector)[0]
                     phishing_proba = proba[1] if len(proba) > 1 else proba[0]
                     ml_verdict = "phishing" if phishing_proba > 0.5 else "safe"
                     ml_confidence = float(max(phishing_proba, 1 - phishing_proba))
@@ -293,7 +344,6 @@ class URLAnalyzer:
                     else:
                         ml_feature_importance = {}
                 else:
-                    # URLClassifier - has custom predict method
                     ml_verdict, ml_confidence = self.ml_classifier.predict(feature_vector)
                     ml_feature_importance = self.ml_classifier.get_feature_importance()
             except Exception as e:

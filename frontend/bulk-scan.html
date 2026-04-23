@@ -135,11 +135,28 @@
         const API_KEY = 'dev-api-key';
         let scanResults = [];
 
+        function isValidUrl(str) {
+            const domainPattern = /^[\w.-]+\.[a-z]{2,}(\/|$)/i;
+            const urlPattern = /^https?:\/\//i;
+            const ipPattern = /^\d{1,3}(\.\d{1,3}){3}/;
+            if (urlPattern.test(str)) return true;
+            if (ipPattern.test(str)) return true;
+            if (domainPattern.test(str)) return true;
+            return false;
+        }
+
         async function startBulkScan() {
             const input = document.getElementById('url-input').value.trim();
             if (!input) return;
 
             let urls = input.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+
+            // Validate each line looks like a URL
+            const invalid = urls.filter(u => !isValidUrl(u));
+            if (invalid.length > 0) {
+                alert(`Invalid input detected (not a URL):\n"${invalid[0].substring(0, 60)}${invalid[0].length > 60 ? '...' : ''}"\n\nPlease enter valid URLs only.`);
+                return;
+            }
 
             // Add https:// if missing
             urls = urls.map(u => u.startsWith('http') ? u : 'https://' + u);
