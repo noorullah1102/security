@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <title>About — PhishRadar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -16,12 +17,23 @@
         .social-link { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; font-size: 14px; text-decoration: none; color: #1a1a1a; border: 0.5px solid rgba(0,0,0,0.1); transition: all 0.15s; }
         .social-link:hover { background: #f0f0f0; }
         .tech-tag { display: inline-block; font-size: 12px; padding: 4px 10px; border-radius: 6px; background: #f0f0f0; color: #555; }
+        .hamburger { display:none; background:none; border:none; cursor:pointer; padding:8px; color:#555; }
+        .nav-links { display:flex; align-items:center; gap:4px; }
+        @media (max-width: 768px) {
+            .nav-inner { position:relative; }
+            .nav-links { display:none; position:absolute; top:100%; left:0; right:0; background:#fff; flex-direction:column; padding:8px 20px; border-bottom:0.5px solid rgba(0,0,0,0.1); box-shadow:0 4px 8px rgba(0,0,0,0.05); z-index:100; }
+            .nav-links.open { display:flex; }
+            .hamburger { display:block; }
+            .profile-card { flex-direction:column !important; align-items:center !important; text-align:center; }
+            .profile-card > div:first-child { margin-bottom:12px; }
+            .social-links { justify-content:center; }
+        }
     </style>
 </head>
 <body>
     <!-- Navigation -->
     <nav style="background:#fff; border-bottom: 0.5px solid rgba(0,0,0,0.1);">
-        <div style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
+        <div class="nav-inner" style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
             <div style="display:flex; align-items:center; gap:10px;">
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                     <rect width="28" height="28" rx="6" fill="#E24B4A"/>
@@ -30,7 +42,10 @@
                 </svg>
                 <span style="font-weight:500; font-size:16px;">PhishRadar</span>
             </div>
-            <div style="display:flex; align-items:center; gap:4px;">
+            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="nav-links">
                 <a href="/" class="nav-link">Dashboard</a>
                 <a href="/analyze" class="nav-link">URL Checker</a>
                 <a href="/threat-feed" class="nav-link" style="display:flex;align-items:center;gap:6px;">
@@ -55,7 +70,7 @@
 
         <!-- Who Built This -->
         <div class="card" style="padding:28px; margin-bottom:20px;">
-            <div style="display:flex; gap:24px; align-items:flex-start;">
+            <div class="profile-card" style="display:flex; gap:24px; align-items:flex-start;">
                 <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, #E24B4A, #c43a39); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                     <span style="font-size:28px; font-weight:600; color:white;">N</span>
                 </div>

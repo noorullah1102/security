@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <title>URL Checker — PhishRadar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -31,12 +32,24 @@
         .vb-safe { background: #EAF3DE; border: 0.5px solid #c0ddb0; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .spinner { animation: spin 0.8s linear infinite; }
+        .hamburger { display:none; background:none; border:none; cursor:pointer; padding:8px; color:#555; }
+        .nav-links { display:flex; align-items:center; gap:4px; }
+        @media (max-width: 768px) {
+            .nav-inner { position:relative; }
+            .nav-links { display:none; position:absolute; top:100%; left:0; right:0; background:#fff; flex-direction:column; padding:8px 20px; border-bottom:0.5px solid rgba(0,0,0,0.1); box-shadow:0 4px 8px rgba(0,0,0,0.05); z-index:100; }
+            .nav-links.open { display:flex; }
+            .hamburger { display:block; }
+            .grid-signals { grid-template-columns:1fr 1fr !important; }
+        }
+        @media (max-width: 480px) {
+            .grid-signals { grid-template-columns:1fr !important; }
+        }
     </style>
 </head>
 <body>
     <!-- Navigation -->
     <nav style="background:#fff; border-bottom: 0.5px solid rgba(0,0,0,0.1);">
-        <div style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
+        <div class="nav-inner" style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
             <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                     <rect width="28" height="28" rx="6" fill="#E24B4A"/>
@@ -45,7 +58,10 @@
                 </svg>
                 <span style="font-weight:500; font-size:16px;">PhishRadar</span>
             </a>
-            <div style="display:flex; align-items:center; gap:4px;">
+            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="nav-links">
                 <a href="/" class="nav-link">Dashboard</a>
                 <a href="/analyze" class="nav-link active">URL Checker</a>
                 <a href="/threat-feed" class="nav-link" style="display:flex;align-items:center;gap:6px;">
@@ -130,7 +146,7 @@
             </div>
 
             <!-- Signal Grid — Domain Analysis -->
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+            <div class="grid-signals" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
                 <div class="signal-card">
                     <div class="signal-label">Domain Age</div>
                     <div id="sig-domain-age" class="signal-value val-muted">—</div>
@@ -202,8 +218,14 @@
 
         async function scanUrl(e) {
             e.preventDefault();
-            const url = document.getElementById('url-input').value.trim();
+            let url = document.getElementById('url-input').value.trim();
             if (!url) return;
+
+            // Auto-prepend https:// if missing scheme
+            if (!/^https?:\/\//i.test(url)) {
+                url = 'https://' + url;
+                document.getElementById('url-input').value = url;
+            }
 
             // Loading state
             document.getElementById('btn-text').style.display = 'none';

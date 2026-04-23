@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <title>Bulk Scan — PhishRadar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -22,12 +23,23 @@
         .export-btn:hover { background:#f5f5f5; }
         .progress-bar { height:4px; background:#f0f0f0; border-radius:2px; overflow:hidden; }
         .progress-fill { height:4px; background:#E24B4A; border-radius:2px; transition:width 0.3s ease; }
+        .hamburger { display:none; background:none; border:none; cursor:pointer; padding:8px; color:#555; }
+        .nav-links { display:flex; align-items:center; gap:4px; }
+        @media (max-width: 768px) {
+            .nav-inner { position:relative; }
+            .nav-links { display:none; position:absolute; top:100%; left:0; right:0; background:#fff; flex-direction:column; padding:8px 20px; border-bottom:0.5px solid rgba(0,0,0,0.1); box-shadow:0 4px 8px rgba(0,0,0,0.05); z-index:100; }
+            .nav-links.open { display:flex; }
+            .hamburger { display:block; }
+            .summary-bar { flex-wrap:wrap; gap:8px !important; }
+            .result-row { font-size:12px !important; }
+            .result-row > span:nth-child(2) { max-width:150px; }
+        }
     </style>
 </head>
 <body>
     <!-- Navigation -->
     <nav style="background:#fff; border-bottom: 0.5px solid rgba(0,0,0,0.1);">
-        <div style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
+        <div class="nav-inner" style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
             <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                     <rect width="28" height="28" rx="6" fill="#E24B4A"/>
@@ -36,7 +48,10 @@
                 </svg>
                 <span style="font-weight:500; font-size:16px;">PhishRadar</span>
             </a>
-            <div style="display:flex; align-items:center; gap:4px;">
+            <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="nav-links">
                 <a href="/" class="nav-link">Dashboard</a>
                 <a href="/analyze" class="nav-link">URL Checker</a>
                 <a href="/threat-feed" class="nav-link" style="display:flex;align-items:center;gap:6px;">
