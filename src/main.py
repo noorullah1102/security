@@ -155,6 +155,12 @@ def create_app() -> FastAPI:
         """Serve the Bulk Scan page."""
         return serve_page(frontend_dir / "bulk-scan.html")
 
+    # About page route
+    @app.get("/about", include_in_schema=False)
+    async def about_page():
+        """Serve the About page."""
+        return serve_page(frontend_dir / "about.html")
+
     # Exception handlers
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
