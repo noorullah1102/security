@@ -4,6 +4,8 @@
 
 Built for security analysts, SOC teams, and anyone who wants to understand phishing threats without deciphering raw technical indicators.
 
+**Live demo:** https://phishradar.noorullah.net
+
 ---
 
 ## How It Works
@@ -39,14 +41,15 @@ Built for security analysts, SOC teams, and anyone who wants to understand phish
 
 ## Features
 
-- **URL Analysis** — Extracts 14 features (domain age, SSL validity, redirect chains, typosquatting detection, suspicious keywords/TLDs, etc.)
-- **ML Classification** — Gradient Boosting classifier trained on 654K+ real URLs from Kaggle (85.5% accuracy)
+- **URL Analysis** — Extracts 26+ lexical features (domain entropy, typosquatting, suspicious keywords/TLDs, brand impersonation, etc.) plus network features (WHOIS age, SSL, redirects)
+- **ML Classification** — TF-IDF character n-grams + Gradient Boosting classifier trained on 654K+ real URLs from Kaggle (86% accuracy)
 - **Rule-Based Detection** — 11 rules with critical-override capability (catches what ML misses)
 - **AI Explanations** — Claude-powered plain-English threat reports with severity, risk factors, and recommended actions
 - **7 Threat Feeds** — URLhaus, OpenPhish, VirusTotal, Google Safe Browsing, urlscan.io, Reddit, PhishTank
 - **PhishTank MCP Server** — 7 MCP tools for querying PhishTank via Claude Desktop / Claude Code
 - **Dashboard** — Real-time stats, charts, scan history, and feed health monitoring
 - **REST API** — Full CRUD API with authentication and batch analysis
+- **Mobile Responsive** — Works on all screen sizes with hamburger navigation
 
 ## Example Response
 
@@ -94,7 +97,7 @@ Built for security analysts, SOC teams, and anyone who wants to understand phish
 |-----------|------------|
 | Language | Python 3.12 |
 | API Framework | FastAPI |
-| ML | scikit-learn (Gradient Boosting) |
+| ML | scikit-learn (TF-IDF + Gradient Boosting) |
 | AI | Claude API (Anthropic SDK) |
 | Database | SQLAlchemy + SQLite |
 | Threat Feeds | PhishTank, URLhaus, Reddit (PRAW), OpenPhish, VirusTotal, Google Safe Browsing, urlscan.io |
@@ -153,6 +156,7 @@ python scripts/seed_demo_data.py
 uvicorn src.main:app --reload
 
 # Open http://localhost:8000 for the dashboard
+# Or visit https://phishradar.noorullah.net for the live demo
 ```
 
 ### Test
