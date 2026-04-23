@@ -22,8 +22,10 @@ async function apiFetch(endpoint, options = {}) {
 }
 
 function getTimeAgo(date) {
-    const dateStr = typeof date === 'string' && !date.endsWith('Z') && !date.includes('+') ? date + 'Z' : date;
-    const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000);
+    // Normalize: strip microseconds, force UTC
+    let d = typeof date === 'string' ? date.replace(/\.\d+/, '') : date;
+    if (!d.endsWith('Z') && !d.includes('+')) d = d + 'Z';
+    const seconds = Math.floor((new Date() - new Date(d)) / 1000);
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
