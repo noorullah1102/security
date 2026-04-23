@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About — PhishRadar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+        .font-mono { font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace; }
+        body { background: #F7F7F5; color: #1a1a1a; }
+        .card { background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 10px; }
+        .nav-link { padding: 6px 14px; border-radius: 6px; font-size: 14px; color: #555; text-decoration: none; }
+        .nav-link:hover { background: #f0f0f0; }
+        .nav-link.active { background: #f0f0f0; color: #1a1a1a; font-weight: 500; }
+        .social-link { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; font-size: 14px; text-decoration: none; color: #1a1a1a; border: 0.5px solid rgba(0,0,0,0.1); transition: all 0.15s; }
+        .social-link:hover { background: #f0f0f0; }
+        .tech-tag { display: inline-block; font-size: 12px; padding: 4px 10px; border-radius: 6px; background: #f0f0f0; color: #555; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav style="background:#fff; border-bottom: 0.5px solid rgba(0,0,0,0.1);">
+        <div style="max-width:1120px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <rect width="28" height="28" rx="6" fill="#E24B4A"/>
+                    <path d="M14 6 L14 6 L8 9.5V15.5C8 19.5 14 23 14 23C14 23 20 19.5 20 15.5V9.5L14 6Z" stroke="white" stroke-width="1.5" fill="none"/>
+                    <path d="M11.5 14L13 15.5L17 11.5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span style="font-weight:500; font-size:16px;">PhishRadar</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px;">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/analyze" class="nav-link">URL Checker</a>
+                <a href="/threat-feed" class="nav-link" style="display:flex;align-items:center;gap:6px;">
+                    Threat Feed
+                    <span style="font-size:10px; padding:2px 8px; border-radius:9999px; font-weight:500; background:#FCEBEB; color:#A32D2D;">LIVE</span>
+                </a>
+                <a href="/bulk-scan" class="nav-link">Bulk Scan</a>
+                <a href="/about" class="nav-link active">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <main style="max-width:800px; margin:0 auto; padding:40px 20px;">
+
+        <!-- Header -->
+        <div style="margin-bottom:40px;">
+            <h1 style="font-size:28px; font-weight:600; margin-bottom:8px;">About PhishRadar</h1>
+            <p style="font-size:15px; color:#666; line-height:1.6;">
+                An AI-powered phishing detection platform that combines machine learning with Claude AI to identify malicious URLs and explain threats in plain English.
+            </p>
+        </div>
+
+        <!-- Who Built This -->
+        <div class="card" style="padding:28px; margin-bottom:20px;">
+            <div style="display:flex; gap:24px; align-items:flex-start;">
+                <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, #E24B4A, #c43a39); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <span style="font-size:28px; font-weight:600; color:white;">N</span>
+                </div>
+                <div>
+                    <h2 style="font-size:20px; font-weight:600; margin-bottom:4px;">Noorullah</h2>
+                    <p style="font-size:13px; color:#888; margin-bottom:12px;">Cybersecurity Professional</p>
+                    <p style="font-size:14px; color:#555; line-height:1.7;">
+                        I'm a cybersecurity professional passionate about building tools that make the internet safer.
+                        PhishRadar was built to demonstrate how machine learning and AI can work together to detect phishing threats
+                        and make security intelligence accessible to everyone — not just technical teams.
+                    </p>
+                    <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <a href="https://github.com/noorullah1102" target="_blank" class="social-link">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                            GitHub
+                        </a>
+                        <a href="https://linkedin.com/in/noorullah1102" target="_blank" class="social-link">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                            LinkedIn
+                        </a>
+                        <a href="mailto:noorullah1102@gmail.com" class="social-link">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 4L12 13 2 4"/></svg>
+                            Email
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- What is PhishRadar -->
+        <div class="card" style="padding:28px; margin-bottom:20px;">
+            <h2 style="font-size:18px; font-weight:600; margin-bottom:16px;">What is PhishRadar?</h2>
+            <p style="font-size:14px; color:#555; line-height:1.7; margin-bottom:16px;">
+                Traditional phishing detectors give you a simple "safe" or "dangerous" verdict. PhishRadar goes further
+                — it explains <em>why</em> a URL is dangerous using AI, making threat intelligence accessible to
+                non-technical teams, junior SOC analysts, and anyone who wants to understand phishing attacks.
+            </p>
+            <p style="font-size:14px; color:#555; line-height:1.7;">
+                The platform aggregates threat data from multiple real-time feeds (URLhaus, OpenPhish, VirusTotal, and more),
+                uses a machine learning classifier trained on 650K+ URLs, and generates human-readable explanations via
+                Claude AI.
+            </p>
+        </div>
+
+        <!-- How It Works -->
+        <div class="card" style="padding:28px; margin-bottom:20px;">
+            <h2 style="font-size:18px; font-weight:600; margin-bottom:16px;">How It Works</h2>
+            <div style="display:flex; flex-direction:column; gap:20px;">
+                <div style="display:flex; gap:16px; align-items:flex-start;">
+                    <div style="width:32px; height:32px; border-radius:8px; background:#E6F1FB; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px; font-weight:600; color:#185FA5;">1</div>
+                    <div>
+                        <div style="font-size:14px; font-weight:500; margin-bottom:4px;">Threat Feed Check</div>
+                        <div style="font-size:13px; color:#666;">URL is checked against live threat feeds (URLhaus, OpenPhish, VirusTotal, Google Safe Browsing) for instant verdicts.</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:16px; align-items:flex-start;">
+                    <div style="width:32px; height:32px; border-radius:8px; background:#E6F1FB; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px; font-weight:600; color:#185FA5;">2</div>
+                    <div>
+                        <div style="font-size:14px; font-weight:500; margin-bottom:4px;">Feature Extraction & ML Classification</div>
+                        <div style="font-size:13px; color:#666;">14+ features extracted (domain age, SSL validity, typosquatting, redirect chains). Gradient Boosting classifier trained on 650K+ URLs delivers the verdict.</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:16px; align-items:flex-start;">
+                    <div style="width:32px; height:32px; border-radius:8px; background:#E6F1FB; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px; font-weight:600; color:#185FA5;">3</div>
+                    <div>
+                        <div style="font-size:14px; font-weight:500; margin-bottom:4px;">AI-Powered Explanation</div>
+                        <div style="font-size:13px; color:#666;">Claude AI generates a plain-English explanation of the threat, including risk factors, severity level, and recommended action.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tech Stack -->
+        <div class="card" style="padding:28px; margin-bottom:20px;">
+            <h2 style="font-size:18px; font-weight:600; margin-bottom:16px;">Tech Stack</h2>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <span class="tech-tag">Python 3.12</span>
+                <span class="tech-tag">FastAPI</span>
+                <span class="tech-tag">scikit-learn</span>
+                <span class="tech-tag">Claude API</span>
+                <span class="tech-tag">SQLAlchemy</span>
+                <span class="tech-tag">SQLite</span>
+                <span class="tech-tag">Tailwind CSS</span>
+                <span class="tech-tag">Chart.js</span>
+                <span class="tech-tag">Docker</span>
+                <span class="tech-tag">Nginx</span>
+            </div>
+        </div>
+
+        <!-- API Docs -->
+        <div class="card" style="padding:28px; margin-bottom:20px;">
+            <h2 style="font-size:18px; font-weight:600; margin-bottom:12px;">For Developers</h2>
+            <p style="font-size:14px; color:#555; line-height:1.7; margin-bottom:12px;">
+                PhishRadar exposes a REST API for programmatic URL analysis. Check out the interactive docs:
+            </p>
+            <div style="display:flex; gap:10px;">
+                <a href="/docs" class="social-link" style="font-size:13px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Swagger UI
+                </a>
+                <a href="/redoc" class="social-link" style="font-size:13px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    ReDoc
+                </a>
+            </div>
+        </div>
+
+        <!-- Source Code -->
+        <div class="card" style="padding:28px;">
+            <h2 style="font-size:18px; font-weight:600; margin-bottom:12px;">Source Code</h2>
+            <p style="font-size:14px; color:#555; line-height:1.7; margin-bottom:12px;">
+                This is an open-source portfolio project. Feel free to explore the code, suggest improvements, or use it as a reference.
+            </p>
+            <a href="https://github.com/noorullah1102/phishradar" target="_blank" class="social-link" style="background:#1a1a1a; color:white; border-color:#1a1a1a;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                View on GitHub
+            </a>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer style="border-top:0.5px solid rgba(0,0,0,0.1);padding:16px 20px;text-align:center;font-size:12px;color:#888;margin-top:40px;background:#fff;">
+        Built by Noorullah &mdash; PhishRadar v1.0
+    </footer>
+</body>
+</html>
